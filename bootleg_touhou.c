@@ -230,6 +230,8 @@ void disp_post_draw()
 #define KEY_SEEN     1
 #define KEY_RELEASED 2
 unsigned char key[ALLEGRO_KEY_MAX];
+unsigned char keydown[ALLEGRO_KEY_MAX];
+unsigned char keyup[ALLEGRO_KEY_MAX];
 
 void keyboard_init()
 {
@@ -242,14 +244,20 @@ void keyboard_update(ALLEGRO_EVENT* event)
     {
         case ALLEGRO_EVENT_TIMER:
             for(int i = 0; i < ALLEGRO_KEY_MAX; i++)
+            {
                 key[i] &= KEY_SEEN;
+                keydown[i] &= KEY_SEEN;
+                keyup[i] &= KEY_SEEN;
+            }
             break;
 
         case ALLEGRO_EVENT_KEY_DOWN:
             key[event->keyboard.keycode] = KEY_SEEN | KEY_RELEASED;
+            keydown[event->keyboard.keycode] = KEY_RELEASED;
             break;
         case ALLEGRO_EVENT_KEY_UP:
             key[event->keyboard.keycode] &= KEY_RELEASED;
+            keyup[event->keyboard.keycode] = KEY_RELEASED;
             break;
     }
 }
@@ -437,6 +445,19 @@ void do_bomb()
     for (int i = 0; i < ALIENS_N; i++)
     {
         aliens[i].life = 0;
+    }
+    for (int i = 0; i < SHOTS_N; i++)
+    {
+        shots[i].used = false;
+    }
+}
+
+void do_deathbomb()
+// a weaker bomb that activates if you bomb during hitstop
+{
+    for (int i = 0; i < ALIENS_N; i++)
+    {
+        aliens[i].used = false;
     }
     for (int i = 0; i < SHOTS_N; i++)
     {
@@ -693,7 +714,7 @@ void ship_update()
             ship.shot_timer = 5;
     }
     // logic for bombing
-    if (ALLEGRO_EVENT_KEY_DOWN && (ship.bombs > 0))
+    if (keydown[ALLEGRO_KEY_X] && (ship.bombs > 0))
     {
         ship.bombs -= 1;
         do_bomb();
