@@ -455,6 +455,7 @@ void do_bomb()
 void do_deathbomb()
 // a weaker bomb that activates if you bomb during hitstop
 {
+    hitstop_timer = 0;
     for (int i = 0; i < ALIENS_N; i++)
     {
         aliens[i].used = false;
@@ -468,7 +469,6 @@ void do_deathbomb()
 void player_dies()
 // what happens when the player dies
 {
-    hitstop_timer = 30;
     ship.lives--;
     ship.respawn_timer = 90;
     ship.invincible_timer = 180;
@@ -700,7 +700,7 @@ void ship_update()
             fx_add(false, x-2, y-4);
             fx_add(false, x+1, y-5);
 
-            player_dies();
+            hitstop_timer = 30;
         }
     }
 
@@ -1127,8 +1127,15 @@ int main()
             case ALLEGRO_EVENT_TIMER:
                 if (hitstop_timer > 0)
                 {
+                    if (hitstop_timer == 1)
+                        player_dies();
+
+                    if (keydown[ALLEGRO_KEY_X] && (ship.bombs > 0))
+                    {
+                        ship.bombs -= 1;
+                        do_deathbomb();
+                    }
                     hitstop_timer -= 1;
-                    //stuff that happens during hitstop
                 }
                 else
                 {
