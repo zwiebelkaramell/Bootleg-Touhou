@@ -173,7 +173,7 @@ float between_f(float lo, float hi)
     return lo + ((float)rand() / (float)RAND_MAX) * (hi - lo);
 }
 
-bool collide(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int by2)
+bool rect_collide(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int by2)
 {
     if(ax1 > bx2) return false;
     if(ax2 < bx1) return false;
@@ -181,6 +181,32 @@ bool collide(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int 
     if(ay2 < by1) return false;
 
     return true;
+}
+
+bool circle_collide(int ax, int ay, int ar, int bx, int by, int br)
+// stolen from the internet because i want it to be optimal and am too lazy to reinvent the wheel
+{
+    if(((ax - bx)^2) + ((ay - by)^2) <= ((ar + br)^2)) return true;
+    return false;
+}
+
+bool circle_rect_collide(int ax, int ay, int ar, int bx, int by, int bw, int bh)
+// stolen from the internet because there is no way in hell i would have come up with something this efficient
+{
+    bx = (bx + (bw/2));
+    by = (by + (bh/2));
+
+    int xdiff = abs(ax - bx);
+    int ydiff = abs(ay - by);
+
+    if (xdiff > ((bw/2)+ar)) return false;
+    if (ydiff > ((bh/2)+ar)) return false;
+
+    if (xdiff <= (bw/2)) return true;
+    if (ydiff <= (bh/2)) return true;
+
+    if (((xdiff - (bw/2))^2) + ((ydiff - (bh/2))^2) <= (ar^2)) return true;
+    return false;
 }
 
 float get_volume(bool is_music, float gain)
@@ -596,7 +622,7 @@ bool shots_collide(bool ship, int x, int y, int w, int h)
             sh = SHIP_SHOT_H;
         }
 
-        if(collide(x, y, x+w, y+h, shots[i].x, shots[i].y, shots[i].x+sw, shots[i].y+sh))
+        if(rect_collide(x, y, x+w, y+h, shots[i].x, shots[i].y, shots[i].x+sw, shots[i].y+sh))
         {
             fx_add(true, shots[i].x + (sw / 2), shots[i].y + (sh / 2));
             shots[i].used = false;
@@ -703,6 +729,9 @@ void ship_update()
             hitstop_timer = 30;
         }
     }
+
+    // graze logic
+    
 
     // logic for shooting
     if(ship.shot_timer)
