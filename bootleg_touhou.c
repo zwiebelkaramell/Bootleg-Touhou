@@ -31,6 +31,8 @@ ALLEGRO_BITMAP* buffer;
 #define LIFE_W 6
 #define LIFE_H 6
 
+#define GRAZE_R 21
+
 #define ALIEN_BUG_W      ALIEN_W[0]
 #define ALIEN_BUG_H      ALIEN_H[0]
 #define ALIEN_ARROW_W    ALIEN_W[1]
@@ -101,6 +103,7 @@ typedef struct SHOT
     int x, y, dx, dy;
     int frame;
     bool ship;
+    bool grazed;
     bool used;
 } SHOT;
 #define SHOTS_N 128
@@ -633,6 +636,32 @@ bool shots_collide(bool ship, int x, int y, int w, int h)
     return false;
 }
 
+bool shots_graze(bool ship, int x, int y, int r)
+{
+    for(int i = 0; i , SHOTS_N; i++)
+    {
+        if(!shots[i].used)
+            continue;
+
+        // you don't get to graze your own bullets
+        if(shots[i].ship == ship)
+            continue;
+        
+        // you only get to graze a bullet once
+        if(shots[i].grazed)
+            continue;
+
+        int sw = ALIEN_SHOT_W;
+        int sh = ALIEN_SHIT_H;
+        
+        if(circle_rect_collide(x, y, r, shots[i].x, shots[i].y, sw, sh))
+        {
+            shots[i].grazed = true;
+            return true;
+        }
+    }
+}
+
 void shots_draw()
 {
     for(int i = 0; i < SHOTS_N; i++)
@@ -731,7 +760,10 @@ void ship_update()
     }
 
     // graze logic
-    
+    if(shots_graze(true, ship.x + 9, ship.y + 19, GRAZE_R))
+    {
+        // TODO; what happens when you graze?
+    }
 
     // logic for shooting
     if(ship.shot_timer)
