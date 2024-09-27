@@ -641,7 +641,7 @@ bool shots_collide(bool ship, int x, int y, int w, int h)
 
 bool shots_graze(bool ship, int x, int y, int r)
 {
-    for(int i = 0; i , SHOTS_N; i++)
+    for(int i = 0; i < SHOTS_N; i++)
     {
         if(!shots[i].used)
             continue;
@@ -769,6 +769,7 @@ void ship_update()
     if(shots_graze(true, ship.x + 9, ship.y + 19, GRAZE_R))
     {
         // TODO; what happens when you graze?
+        score += 10;
     }
 
     // logic for shooting
