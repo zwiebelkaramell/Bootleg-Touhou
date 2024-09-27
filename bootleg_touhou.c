@@ -7,6 +7,8 @@
 #include <allegro5/allegro_acodec.h>
 #include <allegro5/allegro_image.h>
 
+
+
 // aliases
 ALLEGRO_DISPLAY* disp;
 ALLEGRO_BITMAP* buffer;
@@ -25,26 +27,22 @@ ALLEGRO_BITMAP* buffer;
 #define SHIP_W 20
 #define SHIP_H 36
 
-#define SHIP_SHOT_W 2
-#define SHIP_SHOT_H 9
-
-#define LIFE_W 6
-#define LIFE_H 6
+#define ICON_W 6
+#define ICON_H 6
 
 #define GRAZE_R 21
 
-#define ALIEN_BUG_W      ALIEN_W[0]
-#define ALIEN_BUG_H      ALIEN_H[0]
-#define ALIEN_ARROW_W    ALIEN_W[1]
-#define ALIEN_ARROW_H    ALIEN_H[1]
-#define ALIEN_THICCBOI_W ALIEN_W[2]
-#define ALIEN_THICCBOI_H ALIEN_H[2]
+#define ALIEN_BLOB_W        ALIEN_W[0]
+#define ALIEN_BLOB_H        ALIEN_H[0]
+#define ALIEN_YELLOW_W      ALIEN_W[1]
+#define ALIEN_YELLOW_H      ALIEN_H[1]
+#define ALIEN_PURPLE_W      ALIEN_W[2]
+#define ALIEN_PURPLE_H      ALIEN_H[2]
+#define ALIEN_GREEN_W       ALIEN_W[3]
+#define ALIEN_GREEN_H       ALIEN_H[3]
 
-#define ALIEN_SHOT_W 4
-#define ALIEN_SHOT_H 4
-
-#define EXPLOSION_FRAMES 4
-#define SPARKS_FRAMES    3
+#define EXPLOSION_FRAMES 5
+#define SPLASH_FRAMES    2
 
 #define SHIP_SPEED 3
 #define FOCUS_SPEED 1
@@ -59,8 +57,12 @@ float master_volume = 1;
 float sfx_volume = 1;
 float music_volume = 1;
 int hair_len = 15;
-const int ALIEN_W[] = {14, 13, 45};
-const int ALIEN_H[] = { 9, 10, 27};
+const int ALIEN_W[] = {15, 19, 18, 25};
+const int ALIEN_H[] = {15, 23, 31, 33};
+const int ALIEN_SHOT_W[] = {5, 9, 5, 28};
+const int ALIEN_SHOT_H[] = {5, 9, 20, 8};
+const int SHIP_SHOT_W[] = {3, 5, 7};
+const int SHIP_SHOT_H[] = {11, 5, 7};
 int hitstop_timer = 0;
 
 // structures
@@ -69,16 +71,14 @@ typedef struct SPRITES
     ALLEGRO_BITMAP* _sheet;
 
     ALLEGRO_BITMAP* ship;
-    ALLEGRO_BITMAP* ship_shot[2];
+    ALLEGRO_BITMAP* ship_shot[3];
     ALLEGRO_BITMAP* life;
 
-    ALLEGRO_BITMAP* alien[3];
-    ALLEGRO_BITMAP* alien_shot;
+    ALLEGRO_BITMAP* alien[4];
+    ALLEGRO_BITMAP* alien_shot[4];
 
     ALLEGRO_BITMAP* explosion[EXPLOSION_FRAMES];
-    ALLEGRO_BITMAP* sparks[SPARKS_FRAMES];
-
-    ALLEGRO_BITMAP* powerup[4];
+    ALLEGRO_BITMAP* splash[SPLASH_FRAMES];
 
     ALLEGRO_BITMAP* hitbox;
     ALLEGRO_BITMAP* hair;
@@ -92,7 +92,7 @@ typedef struct FX
 {
     int x, y;
     int frame;
-    bool spark;
+    bool splash;
     bool used;
 } FX;
 #define FX_N 128
@@ -102,6 +102,7 @@ typedef struct SHOT
 {
     int x, y, dx, dy;
     int frame;
+    int type;
     bool ship;
     bool grazed;
     bool used;
@@ -122,9 +123,10 @@ SHIP ship;
 
 typedef enum ALIEN_TYPE
 {
-    ALIEN_TYPE_BUG = 0,
-    ALIEN_TYPE_ARROW,
-    ALIEN_TYPE_THICCBOI,
+    ALIEN_TYPE_BLOB = 0,
+    ALIEN_TYPE_YELLOW,
+    ALIEN_TYPE_PURPLE,
+    ALIEN_TYPE_GREEN,
     ALIEN_TYPE_N
 } ALIEN_TYPE;
 
@@ -303,68 +305,70 @@ void sprites_init()
     sprites._sheet = al_load_bitmap("spritesheet.png");
     must_init(sprites._sheet, "spritesheet");
 
-    sprites.ship = sprite_grab(63, 0, SHIP_W, SHIP_H);
-    sprites.hitbox = sprite_grab(63, 36, 8, 8);
+    sprites.ship = sprite_grab(0, 0, SHIP_W, SHIP_H);
+    sprites.hitbox = sprite_grab(0, 36, 8, 8);
 
-    sprites.life = sprite_grab(0, 14, LIFE_W, LIFE_H);
+    sprites.bomb = sprite_grab(8, 36, ICON_W, ICON_H);
+    sprites.life = sprite_grab(13, 36, ICON_W, ICON_H);
 
-    sprites.ship_shot[0] = sprite_grab(13, 0, SHIP_SHOT_W, SHIP_SHOT_H);
-    sprites.ship_shot[1] = sprite_grab(16, 0, SHIP_SHOT_W, SHIP_SHOT_H);
+    sprites.ship_shot[0] = sprite_grab(20, 0, SHIP_SHOT_W[0], SHIP_SHOT_H[0]);
+    sprites.ship_shot[1] = sprite_grab(23, 0, SHIP_SHOT_W[1], SHIP_SHOT_H[1]);
+    sprites.ship_shot[2] = sprite_grab(20, 11, SHIP_SHOT_W[2], SHIP_SHOT_H[2]);
 
-    sprites.alien[0] = sprite_grab(19, 0, ALIEN_BUG_W, ALIEN_BUG_H);
-    sprites.alien[1] = sprite_grab(19, 10, ALIEN_ARROW_W, ALIEN_ARROW_H);
-    sprites.alien[2] = sprite_grab(0, 21, ALIEN_THICCBOI_W, ALIEN_THICCBOI_H);
+    sprites.alien[0] = sprite_grab(19, 44, ALIEN_BLOB_W, ALIEN_BLOB_H);
+    sprites.alien[1] = sprite_grab(0, 44, ALIEN_YELLOW_W, ALIEN_YELLOW_H);
+    sprites.alien[2] = sprite_grab(0, 67, ALIEN_PURPLE_W, ALIEN_PURPLE_H);
+    sprites.alien[3] = sprite_grab(0, 98, ALIEN_GREEN_W, ALIEN_GREEN_H);
 
-    sprites.alien_shot = sprite_grab(13, 10, ALIEN_SHOT_W, ALIEN_SHOT_H);
+    sprites.alien_shot[0] = sprite_grab(18, 70, ALIEN_SHOT_W[0], ALIEN_SHOT_H[0]);
+    sprites.alien_shot[1] = sprite_grab(23, 70, ALIEN_SHOT_W[1], ALIEN_SHOT_H[1]);
+    sprites.alien_shot[2] = sprite_grab(18, 75, ALIEN_SHOT_W[2], ALIEN_SHOT_H[2]);
+    sprites.alien_shot[3] = sprite_grab(23, 79, ALIEN_SHOT_W[3], ALIEN_SHOT_H[3]);
 
-    sprites.explosion[0] = sprite_grab(33, 10, 9, 9);
-    sprites.explosion[1] = sprite_grab(43, 9, 11, 11);
-    sprites.explosion[2] = sprite_grab(46, 21, 17, 18);
-    sprites.explosion[3] = sprite_grab(46, 40, 17, 17);
+    sprites.explosion[0] = sprite_grab(28, 0, 12, 11);
+    sprites.explosion[1] = sprite_grab(27, 11, 13, 12);
+    sprites.explosion[2] = sprite_grab(20, 23, 15, 14);
+    sprites.explosion[3] = sprite_grab(40, 0, 26, 24);
+    sprites.explosion[4] = sprite_grab(66, 0, 30, 28);
 
-    sprites.sparks[0] = sprite_grab(34, 0, 10, 8);
-    sprites.sparks[1] = sprite_grab(45, 0, 7, 8);
-    sprites.sparks[2] = sprite_grab(54, 0, 9, 8);
+    sprites.splash[0] = sprite_grab(35, 24, 7, 8);
+    sprites.splash[1] = sprite_grab(42, 24, 11, 10);
 
-    sprites.powerup[0] = sprite_grab(0, 49, 9, 12);
-    sprites.powerup[1] = sprite_grab(10, 49, 9, 12);
-    sprites.powerup[2] = sprite_grab(20, 49, 9, 12);
-    sprites.powerup[3] = sprite_grab(30, 49, 9, 12);
-
-    sprites.hair = sprite_grab(71, 4, 4, 1);
-
-    sprites.bomb = sprite_grab(71, 36, 6, 6);
+    sprites.hair = sprite_grab(8, 7, 4, 1);
 }
 
 void sprites_deinit()
 {
     al_destroy_bitmap(sprites.ship);
+    al_destroy_bitmap(sprites.hitbox);
+
+    al_destroy_bitmap(sprites.bomb);
+    al_destroy_bitmap(sprites.life);
 
     al_destroy_bitmap(sprites.ship_shot[0]);
     al_destroy_bitmap(sprites.ship_shot[1]);
+    al_destroy_bitmap(sprites.ship_shot[2]);
 
     al_destroy_bitmap(sprites.alien[0]);
     al_destroy_bitmap(sprites.alien[1]);
     al_destroy_bitmap(sprites.alien[2]);
+    al_destroy_bitmap(sprites.alien[3]);
 
-    al_destroy_bitmap(sprites.sparks[0]);
-    al_destroy_bitmap(sprites.sparks[1]);
-    al_destroy_bitmap(sprites.sparks[2]);
+    al_destroy_bitmap(sprites.alien_shot[0]);
+    al_destroy_bitmap(sprites.alien_shot[1]);
+    al_destroy_bitmap(sprites.alien_shot[2]);
+    al_destroy_bitmap(sprites.alien_shot[3]);
 
     al_destroy_bitmap(sprites.explosion[0]);
     al_destroy_bitmap(sprites.explosion[1]);
     al_destroy_bitmap(sprites.explosion[2]);
     al_destroy_bitmap(sprites.explosion[3]);
+    al_destroy_bitmap(sprites.explosion[4]);
 
-    al_destroy_bitmap(sprites.powerup[0]);
-    al_destroy_bitmap(sprites.powerup[1]);
-    al_destroy_bitmap(sprites.powerup[2]);
-    al_destroy_bitmap(sprites.powerup[3]);
+    al_destroy_bitmap(sprites.splash[0]);
+    al_destroy_bitmap(sprites.splash[1]);
 
-    al_destroy_bitmap(sprites.hitbox);
     al_destroy_bitmap(sprites.hair);
-    al_destroy_bitmap(sprites.bomb);
-    al_destroy_bitmap(sprites.life);
 
     al_destroy_bitmap(sprites._sheet);
 }
@@ -406,9 +410,9 @@ void fx_init()
         fx[i].used = false;
 }
 
-void fx_add(bool spark, int x, int y)
+void fx_add(bool splash, int x, int y)
 {
-    if(!spark)
+    if(!splash)
         al_play_sample(
             sample_explode[between(0, 2)],
             get_volume(false, .50),
@@ -426,7 +430,7 @@ void fx_add(bool spark, int x, int y)
         fx[i].x = x;
         fx[i].y = y;
         fx[i].frame = 0;
-        fx[i].spark = spark;
+        fx[i].splash = splash;
         fx[i].used = true;
         return;
     }
@@ -441,8 +445,8 @@ void fx_update()
 
         fx[i].frame++;
 
-        if((!fx[i].spark && (fx[i].frame == (EXPLOSION_FRAMES * 2)))
-        || ( fx[i].spark && (fx[i].frame == (SPARKS_FRAMES * 2)))
+        if((!fx[i].splash && (fx[i].frame == (EXPLOSION_FRAMES * 2)))
+        || ( fx[i].splash && (fx[i].frame == (SPLASH_FRAMES * 2)))
         )
             fx[i].used = false;
     }
@@ -457,8 +461,8 @@ void fx_draw()
 
         int frame_display = fx[i].frame / 2;
         ALLEGRO_BITMAP* bmp =
-            fx[i].spark
-            ? sprites.sparks[frame_display]
+            fx[i].splash
+            ? sprites.splash[frame_display]
             : sprites.explosion[frame_display]
         ;
 
@@ -531,13 +535,13 @@ bool shots_add(bool ship, bool straight, int x, int y)
 
         if(ship)
         {
-            shots[i].x = x - (SHIP_SHOT_W / 2);
+            shots[i].x = x - (SHIP_SHOT_W[shots[i].type] / 2);
             shots[i].y = y;
         }
         else // alien
         {
-            shots[i].x = x - (ALIEN_SHOT_W / 2);
-            shots[i].y = y - (ALIEN_SHOT_H / 2);
+            shots[i].x = x - (ALIEN_SHOT_W[shots[i].type] / 2);
+            shots[i].y = y - (ALIEN_SHOT_H[shots[i].type] / 2);
 
             if(straight)
             {
@@ -546,7 +550,6 @@ bool shots_add(bool ship, bool straight, int x, int y)
             }
             else
             {
-
                 shots[i].dx = between(-2, 2);
                 shots[i].dy = between(-2, 2);
             }
@@ -577,7 +580,7 @@ void shots_update()
         {
             shots[i].y -= 5;
 
-            if(shots[i].y < -SHIP_SHOT_H)
+            if(shots[i].y < -SHIP_SHOT_H[shots[i].type])
             {
                 shots[i].used = false;
                 continue;
@@ -588,9 +591,9 @@ void shots_update()
             shots[i].x += shots[i].dx;
             shots[i].y += shots[i].dy;
 
-            if((shots[i].x < -ALIEN_SHOT_W)
+            if((shots[i].x < -ALIEN_SHOT_W[shots[i].type])
             || (shots[i].x > BUFFER_W)
-            || (shots[i].y < -ALIEN_SHOT_H)
+            || (shots[i].y < -ALIEN_SHOT_H[shots[i].type])
             || (shots[i].y > BUFFER_H)
             ) {
                 shots[i].used = false;
@@ -616,13 +619,13 @@ bool shots_collide(bool ship, int x, int y, int w, int h)
         int sw, sh;
         if(ship)
         {
-            sw = ALIEN_SHOT_W;
-            sh = ALIEN_SHOT_H;
+            sw = ALIEN_SHOT_W[shots[i].type];
+            sh = ALIEN_SHOT_H[shots[i].type];
         }
         else
         {
-            sw = SHIP_SHOT_W;
-            sh = SHIP_SHOT_H;
+            sw = SHIP_SHOT_W[shots[i].type];
+            sh = SHIP_SHOT_H[shots[i].type];
         }
 
         if(rect_collide(x, y, x+w, y+h, shots[i].x, shots[i].y, shots[i].x+sw, shots[i].y+sh))
@@ -651,8 +654,8 @@ bool shots_graze(bool ship, int x, int y, int r)
         if(shots[i].grazed)
             continue;
 
-        int sw = ALIEN_SHOT_W;
-        int sh = ALIEN_SHIT_H;
+        int sw = ALIEN_SHOT_W[shots[i].type];
+        int sh = ALIEN_SHOT_H[shots[i].type];
         
         if(circle_rect_collide(x, y, r, shots[i].x, shots[i].y, sw, sh))
         {
@@ -669,18 +672,21 @@ void shots_draw()
         if(!shots[i].used)
             continue;
 
-        int frame_display = (shots[i].frame / 2) % 2;
+        int frame_display = ((shots[i].frame / 2) % 2) + 1;
 
         if(shots[i].ship)
-            al_draw_bitmap(sprites.ship_shot[frame_display], shots[i].x, shots[i].y, 0);
+            if (shots[i].type == 1)
+            {
+                al_draw_bitmap(sprites.ship_shot[frame_display], shots[i].x, shots[i].y, 0);
+            }
+            else
+            {
+                al_draw_bitmap(sprites.ship_shot[0], shots[i].x, shots[i].y, 0);
+            }
+
         else // alien
         {
-            ALLEGRO_COLOR tint =
-                frame_display
-                ? al_map_rgb_f(1, 1, 1)
-                : al_map_rgb_f(0.5, 0.5, 0.5)
-            ;
-            al_draw_tinted_bitmap(sprites.alien_shot, tint, shots[i].x, shots[i].y, 0);
+            al_draw_bitmap(sprites.alien_shot[shots[i].type], shots[i].x, shots[i].y, 0);
         }
     }
 }
@@ -852,7 +858,7 @@ void hair_draw()
     {   
         int anim_offset = get_hair_anim(hair[i].anim_state);
         hair[i].y = hair[i-1].y + 1; // this piece of hair is 1 pixel longer than the last
-        hair[i].last_x = hair[i].x; // before we change the x we need to reccord what it was
+        hair[i].last_x = hair[i].x; // before we change the x we need to record what it was
 
         // i swear there is a more efficient/more math-ey way to do this, but i am too stupid to find it
         // on the other hand, is it really worth my time to perfectly optimise hair movement in a bootleg touhou game?
@@ -917,15 +923,18 @@ void aliens_update()
                 aliens[i].blink = 0;
                 aliens[i].used = true;
 
-                switch(aliens[i].type)
+                switch(aliens[i].type) // defines alien health values
                 {
-                    case ALIEN_TYPE_BUG:
-                        aliens[i].life = 4;
-                        break;
-                    case ALIEN_TYPE_ARROW:
+                    case ALIEN_TYPE_BLOB:
                         aliens[i].life = 2;
                         break;
-                    case ALIEN_TYPE_THICCBOI:
+                    case ALIEN_TYPE_YELLOW:
+                        aliens[i].life = 4;
+                        break;
+                    case ALIEN_TYPE_PURPLE:
+                        aliens[i].life = 6;
+                        break;
+                    case ALIEN_TYPE_GREEN:
                         aliens[i].life = 12;
                         break;
                 }
@@ -935,18 +944,23 @@ void aliens_update()
             continue;
         }
 
-        switch(aliens[i].type)
+        switch(aliens[i].type) // defines alien movement speed
         {
-            case ALIEN_TYPE_BUG:
+            case ALIEN_TYPE_BLOB:
                 if(frames % 2)
                     aliens[i].y++;
                 break;
 
-            case ALIEN_TYPE_ARROW:
-                aliens[i].y++;
+            case ALIEN_TYPE_YELLOW:
+                    aliens[i].y++;
                 break;
 
-            case ALIEN_TYPE_THICCBOI:
+            case ALIEN_TYPE_PURPLE:
+                if(frames % 2)
+                    aliens[i].y++;
+                break;
+            
+            case ALIEN_TYPE_GREEN:
                 if(!(frames % 4))
                     aliens[i].y++;
                 break;
@@ -978,25 +992,27 @@ void aliens_update()
         int cx = aliens[i].x + (ALIEN_W[aliens[i].type] / 2);
         int cy = aliens[i].y + (ALIEN_H[aliens[i].type] / 2);
 
+        // alien death logic
         if(aliens[i].life <= 0)
         {
             fx_add(false, cx, cy);
 
-            switch(aliens[i].type)
+            switch(aliens[i].type) // defines how much score you get for killing an alien
             {
-                case ALIEN_TYPE_BUG:
+                case ALIEN_TYPE_BLOB:
+                    score += 100;
+                    break;
+
+                case ALIEN_TYPE_YELLOW:
                     score += 200;
                     break;
 
-                case ALIEN_TYPE_ARROW:
-                    score += 150;
+                case ALIEN_TYPE_PURPLE:
+                    score += 400;
                     break;
-
-                case ALIEN_TYPE_THICCBOI:
+                
+                case ALIEN_TYPE_GREEN:
                     score += 800;
-                    fx_add(false, cx-10, cy-4);
-                    fx_add(false, cx+4, cy+10);
-                    fx_add(false, cx+8, cy+8);
                     break;
             }
 
@@ -1004,20 +1020,28 @@ void aliens_update()
             continue;
         }
 
+        // alien bullet logic
         aliens[i].shot_timer--;
         if(aliens[i].shot_timer == 0)
         {
-            switch(aliens[i].type)
+            switch(aliens[i].type) // defines how often aliens shoot
             {
-                case ALIEN_TYPE_BUG:
-                    shots_add(false, false, cx, cy);
-                    aliens[i].shot_timer = 150;
+                case ALIEN_TYPE_BLOB:
+                    // Blobs are not proper Wiznerds and cannot use magic
+                    aliens[i].shot_timer = 200;
                     break;
-                case ALIEN_TYPE_ARROW:
-                    shots_add(false, true, cx, aliens[i].y);
+                case ALIEN_TYPE_YELLOW:
+                    // TODO: what kind of shots does yellow use?
+                    shots_add(false, true, cx, cy);
                     aliens[i].shot_timer = 80;
                     break;
-                case ALIEN_TYPE_THICCBOI:
+                case ALIEN_TYPE_PURPLE:
+                    // TODO: what kind of shots does purple use?
+                    shots_add(false, true, cx, cy);
+                    aliens[i].shot_timer = 160;
+                    break;
+                case ALIEN_TYPE_GREEN:
+                    // TODO: what kind of shots does green use?
                     shots_add(false, true, cx-5, cy);
                     shots_add(false, true, cx+5, cy);
                     shots_add(false, true, cx-5, cy + 8);
@@ -1115,7 +1139,7 @@ void hud_draw()
         score_display
     );
 
-    int spacing = LIFE_W + 1;
+    int spacing = ICON_W + 1;
     for(int i = 0; i < ship.lives; i++)
         al_draw_bitmap(sprites.life, 1 + (i * spacing), 10, 0);
     for(int i = 0; i < ship.bombs; i++)
