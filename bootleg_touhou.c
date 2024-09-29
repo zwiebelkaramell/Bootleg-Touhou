@@ -309,7 +309,7 @@ void sprites_init()
     sprites.hitbox = sprite_grab(0, 36, 8, 8);
 
     sprites.bomb = sprite_grab(8, 36, ICON_W, ICON_H);
-    sprites.life = sprite_grab(13, 36, ICON_W, ICON_H);
+    sprites.life = sprite_grab(14, 36, ICON_W, ICON_H);
 
     sprites.ship_shot[0] = sprite_grab(20, 0, SHIP_SHOT_W[0], SHIP_SHOT_H[0]);
     sprites.ship_shot[1] = sprite_grab(23, 0, SHIP_SHOT_W[1], SHIP_SHOT_H[1]);
