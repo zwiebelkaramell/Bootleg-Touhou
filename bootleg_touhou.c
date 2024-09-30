@@ -95,7 +95,7 @@ typedef struct FX
     bool splash;
     bool used;
 } FX;
-#define FX_N 128
+#define FX_N 1024
 FX fx[FX_N];
 
 typedef struct SHOT
@@ -107,7 +107,7 @@ typedef struct SHOT
     bool grazed;
     bool used;
 } SHOT;
-#define SHOTS_N 128
+#define SHOTS_N 1024
 SHOT shots[SHOTS_N];
 
 typedef struct SHIP
@@ -515,7 +515,7 @@ void shots_init()
         shots[i].used = false;
 }
 
-bool shots_add(bool ship, bool straight, int x, int y)
+bool shots_add(bool ship, int type, int dx, int dy, int x, int y)
 {
     al_play_sample(
         sample_shot,
@@ -543,17 +543,6 @@ bool shots_add(bool ship, bool straight, int x, int y)
             shots[i].x = x - (ALIEN_SHOT_W[shots[i].type] / 2);
             shots[i].y = y - (ALIEN_SHOT_H[shots[i].type] / 2);
 
-            if(straight)
-            {
-                shots[i].dx = 0;
-                shots[i].dy = 2;
-            }
-            else
-            {
-                shots[i].dx = between(-2, 2);
-                shots[i].dy = between(-2, 2);
-            }
-
             // if the shot has no speed, don't bother
             if(!shots[i].dx && !shots[i].dy)
                 return true;
@@ -563,6 +552,9 @@ bool shots_add(bool ship, bool straight, int x, int y)
 
         shots[i].frame = 0;
         shots[i].used = true;
+        shots[i].type = type;
+        shots[i].dx = dx;
+        shots[i].dy = dy;
 
         return true;
     }
@@ -578,8 +570,6 @@ void shots_update()
 
         if(shots[i].ship)
         {
-            shots[i].y -= 5;
-
             if(shots[i].y < -SHIP_SHOT_H[shots[i].type])
             {
                 shots[i].used = false;
@@ -588,8 +578,6 @@ void shots_update()
         }
         else // alien
         {
-            shots[i].x += shots[i].dx;
-            shots[i].y += shots[i].dy;
 
             if((shots[i].x < -ALIEN_SHOT_W[shots[i].type])
             || (shots[i].x > BUFFER_W)
@@ -600,6 +588,9 @@ void shots_update()
                 continue;
             }
         }
+
+        shots[i].x += shots[i].dx;
+        shots[i].y += shots[i].dy;
 
         shots[i].frame++;
     }
@@ -663,6 +654,8 @@ bool shots_graze(bool ship, int x, int y, int r)
             return true;
         }
     }
+
+    return false;
 }
 
 void shots_draw()
@@ -777,8 +770,13 @@ void ship_update()
         ship.shot_timer--;
     else if(key[ALLEGRO_KEY_Z])
     {
+        //shot pattern stuff
         int x = ship.x + (SHIP_W / 2);
-        if(shots_add(true, false, x, ship.y))
+
+        if(shots_add(true, 0, 0, -5, x+3, ship.y)
+        && shots_add(true, 0, 0, -5, x-3, ship.y)
+        && shots_add(true, 1, 1, -5, x+3, ship.y)
+        && shots_add(true, 1, -1, -5, x-3, ship.y))
             ship.shot_timer = 5;
     }
     // logic for bombing
@@ -1033,20 +1031,20 @@ void aliens_update()
                     break;
                 case ALIEN_TYPE_YELLOW:
                     // TODO: what kind of shots does yellow use?
-                    shots_add(false, true, cx, cy);
+                    shots_add(false, 0, 0, 2, cx, cy);
                     aliens[i].shot_timer = 80;
                     break;
                 case ALIEN_TYPE_PURPLE:
                     // TODO: what kind of shots does purple use?
-                    shots_add(false, true, cx, cy);
+                    shots_add(false, 0, 0, 2, cx, cy);
                     aliens[i].shot_timer = 160;
                     break;
                 case ALIEN_TYPE_GREEN:
                     // TODO: what kind of shots does green use?
-                    shots_add(false, true, cx-5, cy);
-                    shots_add(false, true, cx+5, cy);
-                    shots_add(false, true, cx-5, cy + 8);
-                    shots_add(false, true, cx+5, cy + 8);
+                    shots_add(false, 0, 0, 2, cx-5, cy);
+                    shots_add(false, 0, 0, 2, cx+5, cy);
+                    shots_add(false, 0, 0, 2, cx-5, cy + 8);
+                    shots_add(false, 0, 0, 2, cx+5, cy + 8);
                     aliens[i].shot_timer = 200;
                     break;
             }
