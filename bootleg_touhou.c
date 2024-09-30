@@ -922,16 +922,16 @@ void aliens_update()
                 switch(aliens[i].type) // defines alien health values
                 {
                     case ALIEN_TYPE_BLOB:
-                        aliens[i].life = 2;
+                        aliens[i].life = 8;
                         break;
                     case ALIEN_TYPE_YELLOW:
-                        aliens[i].life = 4;
+                        aliens[i].life = 16;
                         break;
                     case ALIEN_TYPE_PURPLE:
-                        aliens[i].life = 6;
+                        aliens[i].life = 24;
                         break;
                     case ALIEN_TYPE_GREEN:
-                        aliens[i].life = 12;
+                        aliens[i].life = 48;
                         break;
                 }
 
