@@ -64,6 +64,7 @@ const int ALIEN_SHOT_H[] = {5, 9, 20, 8};
 const int SHIP_SHOT_W[] = {3, 5, 7};
 const int SHIP_SHOT_H[] = {11, 5, 7};
 int hitstop_timer = 0;
+bool is_paused = 0;
 
 // structures
 typedef struct SPRITES
@@ -102,7 +103,7 @@ typedef struct SHOT
 {
     int x, y, dx, dy;
     int frame;
-    int type;
+    int type; // for ship 0 is bolt 1 is spark, for aliens 0 is ball, 1 is ring, 2 is long and 3 is wide
     bool ship;
     bool grazed;
     bool used;
@@ -483,6 +484,7 @@ void do_bomb()
     {
         shots[i].used = false;
     }
+    printf("Bombing\n");
 }
 
 void do_deathbomb()
@@ -532,6 +534,7 @@ bool shots_add(bool ship, int type, int dx, int dy, int x, int y)
             continue;
 
         shots[i].ship = ship;
+        shots[i].type = type;
 
         if(ship)
         {
@@ -542,22 +545,16 @@ bool shots_add(bool ship, int type, int dx, int dy, int x, int y)
         {
             shots[i].x = x - (ALIEN_SHOT_W[shots[i].type] / 2);
             shots[i].y = y - (ALIEN_SHOT_H[shots[i].type] / 2);
-
-            // if the shot has no speed, don't bother
-            if(!shots[i].dx && !shots[i].dy)
-                return true;
-
-            shots[i].frame = 0;
         }
 
         shots[i].frame = 0;
         shots[i].used = true;
-        shots[i].type = type;
         shots[i].dx = dx;
         shots[i].dy = dy;
 
         return true;
     }
+    printf("Couldn't generate shot\n");
     return false;
 }
 
@@ -1036,15 +1033,13 @@ void aliens_update()
                     break;
                 case ALIEN_TYPE_PURPLE:
                     // TODO: what kind of shots does purple use?
-                    shots_add(false, 0, 0, 2, cx, cy);
+                    shots_add(false, 2, 0, 2, cx+6, cy);
+                    shots_add(false, 2, 0, 2, cx-6, cy);
                     aliens[i].shot_timer = 160;
                     break;
                 case ALIEN_TYPE_GREEN:
                     // TODO: what kind of shots does green use?
-                    shots_add(false, 0, 0, 2, cx-5, cy);
-                    shots_add(false, 0, 0, 2, cx+5, cy);
-                    shots_add(false, 0, 0, 2, cx-5, cy + 8);
-                    shots_add(false, 0, 0, 2, cx+5, cy + 8);
+                    shots_add(false, 3, 0, 1, cx, cy);
                     aliens[i].shot_timer = 200;
                     break;
             }
@@ -1209,7 +1204,11 @@ int main()
         switch(event.type)
         {
             case ALLEGRO_EVENT_TIMER:
-                if (hitstop_timer > 0)
+                if (is_paused)
+                {
+                    //do pausing stuff
+                }
+                else if (hitstop_timer > 0)
                 {
                     if (hitstop_timer == 1)
                         player_dies();
@@ -1231,7 +1230,8 @@ int main()
                     hud_update();
                 }
                 
-
+                if(keydown[ALLEGRO_KEY_P])
+                    is_paused = !is_paused;
                 if(key[ALLEGRO_KEY_ESCAPE])
                     done = true;
 
@@ -1258,7 +1258,7 @@ int main()
             aliens_draw();
             fx_draw();
             ship_draw();
-            hair_draw();
+            hair_draw(); // i have decided the hair waving even while paused is an ascended bug
             hitbox_draw();
             shots_draw();
 
