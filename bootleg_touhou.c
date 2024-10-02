@@ -753,6 +753,22 @@ void ship_update()
 
             hitstop_timer = 30;
         }
+        for(int i = 0; i < ALIENS_N; i++)
+        {
+            if(rect_collide(ship.x+9, ship.y+19, ship.x+9+HIT_W, ship.y+19+HIT_H, aliens[i].x, aliens[i].y, aliens[i].x+ALIEN_W[aliens[i].type], aliens[i].y+ALIEN_H[aliens[i].type])
+            && aliens[i].used) // 202 character if statement lol
+                {
+                    int x = ship.x + (SHIP_W / 2);
+                    int y = ship.y + (SHIP_H / 2);
+                    fx_add(false, x, y);
+                    fx_add(false, x+4, y+2);
+                    fx_add(false, x-2, y-4);
+                    fx_add(false, x+1, y-5);
+
+                    hitstop_timer = 30;
+                }
+        }
+
     }
 
     // graze logic
