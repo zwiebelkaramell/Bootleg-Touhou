@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
@@ -48,7 +49,7 @@ ALLEGRO_BITMAP* buffer;
 #define FOCUS_SPEED 1
 #define SHIP_MAX_X (BUFFER_W - SHIP_W)
 #define SHIP_MAX_Y (BUFFER_H - SHIP_H)
-#define MAX_HAIR_LEN 100
+#define MAX_HAIR_LEN 30
 
 // globals
 long frames;
@@ -119,6 +120,7 @@ typedef struct SHIP
     int bombs;
     int respawn_timer;
     int invincible_timer;
+    int frame;
 } SHIP;
 SHIP ship;
 
@@ -510,20 +512,20 @@ void player_dies()
 // what happens when the player dies
 {
     ship.lives--;
-    ship.respawn_timer = 90;
-    ship.invincible_timer = 180;
+    ship.respawn_timer = 180;
+    ship.invincible_timer = ship.respawn_timer + 90;
+    ship.frame = 0;
     hair_len = 15;
     if (ship.bombs < 3)
         ship.bombs = 3;
     al_play_sample(
         sample_death,
-        get_volume(false, 0.3),
+        get_volume(false, 0.5),
         get_pan(ship.x),
         1,
         ALLEGRO_PLAYMODE_ONCE,
         NULL
     );
-    // do death animation
 }
 
 void shots_init()
@@ -761,11 +763,14 @@ void ship_update()
         {
             int x = ship.x + (SHIP_W / 2);
             int y = ship.y + (SHIP_H / 2);
-            fx_add(false, x, y);
-            fx_add(false, x+4, y+2);
-            fx_add(false, x-2, y-4);
-            fx_add(false, x+1, y-5);
-
+            al_play_sample(
+                sample_explode[1],
+                get_volume(false, 0.5),
+                get_pan(ship.x),
+                1,
+                ALLEGRO_PLAYMODE_ONCE,
+                NULL
+            );
             hitstop_timer = (hair_len*2);
         }
         for(int i = 0; i < ALIENS_N; i++)
@@ -775,10 +780,14 @@ void ship_update()
                 {
                     int x = ship.x + (SHIP_W / 2);
                     int y = ship.y + (SHIP_H / 2);
-                    fx_add(false, x, y);
-                    fx_add(false, x+4, y+2);
-                    fx_add(false, x-2, y-4);
-                    fx_add(false, x+1, y-5);
+                    al_play_sample(
+                        sample_explode[1],
+                        get_volume(false, 0.5),
+                        get_pan(ship.x),
+                        1,
+                        ALLEGRO_PLAYMODE_ONCE,
+                        NULL
+                    );
 
                     hitstop_timer = (hair_len*2);
                 }
@@ -791,6 +800,10 @@ void ship_update()
     {
         // TODO; what happens when you graze?
         score += 10;
+        if (hair_len < 15)
+        {
+            hair_len++;
+        }
     }
 
     // logic for shooting
@@ -820,7 +833,17 @@ void ship_draw()
     if(ship.lives < 0)
         return;
     if(ship.respawn_timer)
+    {
+        int rotation_scaler = M_PI/8;
+        // death animation
+        float angle = 0.1 * ship.frame;
+        int spacing = 2;
+        int drawposx = (ship.x+(SHIP_W/2)) + ((spacing * angle) * cos(angle));
+        int drawposy = (ship.y+(SHIP_H/2)) + ((spacing * angle) * sin(angle));
+        al_draw_scaled_rotated_bitmap(sprites.ship, SHIP_W/2, SHIP_H/2, drawposx, drawposy, 1.0/((0.1*ship.frame)+1), 1.0/((0.1*ship.frame)+1), ship.frame+1*rotation_scaler, 0);
+        ship.frame++;
         return;
+    }
     if(((ship.invincible_timer / 2) % 3) == 1)
         return;
 
@@ -834,7 +857,7 @@ void hair_init()
 {
     hair[0].x = ship.x + 8;
     hair[0].y = ship.y + 11;
-    for(int i = 0; i < hair_len; i++)
+    for(int i = 0; i < MAX_HAIR_LEN; i++)
         hair[i].anim_state = i % 16;
 }
 
@@ -880,7 +903,7 @@ void hair_draw()
     hair[0].anim_state = ((hair[0].anim_state + 15) % 16);
     al_draw_bitmap(sprites.hair, hair[0].x + anim_offset, hair[0].y, 0);
 
-    for(int i = 1; i < hair_len; i++)
+    for(int i = 1; i < MAX_HAIR_LEN; i++)
     // fucking unhinged hair physics bullshit
     {   
         int anim_offset = get_hair_anim(hair[i].anim_state);
@@ -897,7 +920,8 @@ void hair_draw()
             hair[i].x = hair[i-1].last_x;
         
         hair[i].anim_state = ((hair[i].anim_state + 15) % 16);
-        al_draw_bitmap(sprites.hair, (hair[i].x + anim_offset), hair[i].y, 0);
+        if (i <= hair_len)
+            al_draw_bitmap(sprites.hair, (hair[i].x + anim_offset), hair[i].y, 0);
     }
 }
 
@@ -1243,7 +1267,6 @@ int main()
                 {
                     if (hitstop_timer == 1)
                         player_dies();
-                        hair_init();
 
                     if (keydown[ALLEGRO_KEY_X] && (ship.bombs > 0))
                     {
