@@ -377,6 +377,7 @@ void sprites_deinit()
 ALLEGRO_SAMPLE* sample_shot;
 ALLEGRO_SAMPLE* sample_explode[2];
 ALLEGRO_SAMPLE* sample_hitmarker;
+ALLEGRO_SAMPLE* sample_death;
 
 void audio_init()
 {
@@ -395,6 +396,9 @@ void audio_init()
     sample_hitmarker = al_load_sample("hitmarker.flac");
     must_init(sample_hitmarker, "hitmarker sound");
 
+    sample_death = al_load_sample("death.flac");
+    must_init(sample_hitmarker, "death sound");
+
 }
 
 void audio_deinit()
@@ -403,6 +407,7 @@ void audio_deinit()
     al_destroy_sample(sample_explode[0]);
     al_destroy_sample(sample_explode[1]);
     al_destroy_sample(sample_hitmarker);
+    al_destroy_sample(sample_death);
 }
 
 void fx_init()
@@ -507,8 +512,18 @@ void player_dies()
     ship.lives--;
     ship.respawn_timer = 90;
     ship.invincible_timer = 180;
+    hair_len = 15;
     if (ship.bombs < 3)
         ship.bombs = 3;
+    al_play_sample(
+        sample_death,
+        get_volume(false, 0.3),
+        get_pan(ship.x),
+        1,
+        ALLEGRO_PLAYMODE_ONCE,
+        NULL
+    );
+    // do death animation
 }
 
 void shots_init()
@@ -751,7 +766,7 @@ void ship_update()
             fx_add(false, x-2, y-4);
             fx_add(false, x+1, y-5);
 
-            hitstop_timer = 30;
+            hitstop_timer = (hair_len*2);
         }
         for(int i = 0; i < ALIENS_N; i++)
         {
@@ -765,7 +780,7 @@ void ship_update()
                     fx_add(false, x-2, y-4);
                     fx_add(false, x+1, y-5);
 
-                    hitstop_timer = 30;
+                    hitstop_timer = (hair_len*2);
                 }
         }
 
@@ -1228,11 +1243,16 @@ int main()
                 {
                     if (hitstop_timer == 1)
                         player_dies();
+                        hair_init();
 
                     if (keydown[ALLEGRO_KEY_X] && (ship.bombs > 0))
                     {
                         ship.bombs -= 1;
                         do_deathbomb();
+                    }
+                    if (hitstop_timer % 2 == 1)
+                    {
+                        hair_len -= 1;
                     }
                     hitstop_timer -= 1;
                 }
