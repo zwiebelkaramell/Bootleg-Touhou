@@ -50,6 +50,7 @@ ALLEGRO_BITMAP* buffer;
 #define SHIP_MAX_X (BUFFER_W - SHIP_W)
 #define SHIP_MAX_Y (BUFFER_H - SHIP_H)
 #define MAX_HAIR_LEN 30
+#define MAX_POWER 40
 
 // globals
 long frames;
@@ -75,6 +76,7 @@ typedef struct SPRITES
     ALLEGRO_BITMAP* ship;
     ALLEGRO_BITMAP* ship_shot[3];
     ALLEGRO_BITMAP* life;
+    ALLEGRO_BITMAP* potion;
 
     ALLEGRO_BITMAP* alien[4];
     ALLEGRO_BITMAP* alien_shot[4];
@@ -92,7 +94,7 @@ SPRITES sprites;
 
 typedef struct FX
 {
-    int x, y;
+    float x, y;
     int frame;
     bool splash;
     bool used;
@@ -102,7 +104,7 @@ FX fx[FX_N];
 
 typedef struct SHOT
 {
-    int x, y, dx, dy;
+    float x, y, dx, dy;
     int frame;
     int type; // for ship 0 is bolt 1 is spark, for aliens 0 is ball, 1 is ring, 2 is long and 3 is wide
     bool ship;
@@ -114,10 +116,11 @@ SHOT shots[SHOTS_N];
 
 typedef struct SHIP
 {
-    int x, y;
+    float x, y;
     int shot_timer;
     int lives;
     int bombs;
+    int power;
     int respawn_timer;
     int invincible_timer;
     int frame;
@@ -135,7 +138,7 @@ typedef enum ALIEN_TYPE
 
 typedef struct ALIEN
 {
-    int x, y;
+    float x, y;
     ALIEN_TYPE type;
     int shot_timer;
     int blink;
@@ -148,11 +151,23 @@ ALIEN aliens[ALIENS_N];
 typedef struct HAIR_STRUCT
 // data structure for the hair physics
 {
-    int x, y;
-    int last_x;
+    float x, y;
+    float last_x;
     int anim_state;
 } HAIR_STRUCT;
 HAIR_STRUCT hair[MAX_HAIR_LEN];
+
+typedef struct ITEM
+// structure for things the player can pickup (powerups, points, etc)
+{
+    float x, y;
+    int type; /*0 is small powerup*/
+    float size; /*collision radius for pickup logic*/
+    bool used;
+
+} ITEM;
+#define ITEM_N 1024
+ITEM items[ITEM_N];
 
 typedef struct STAR
 {
@@ -181,7 +196,7 @@ float between_f(float lo, float hi)
     return lo + ((float)rand() / (float)RAND_MAX) * (hi - lo);
 }
 
-bool rect_collide(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int by2)
+bool rect_collide(float ax1, float ay1, float ax2, float ay2, float bx1, float by1, float bx2, float by2)
 {
     if(ax1 > bx2) return false;
     if(ax2 < bx1) return false;
@@ -191,21 +206,22 @@ bool rect_collide(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2,
     return true;
 }
 
-bool circle_collide(int ax, int ay, int ar, int bx, int by, int br)
+bool circle_collide(float ax, float ay, float ar, float bx, float by, float br)
 // stolen from the internet because i want it to be optimal and am too lazy to reinvent the wheel
 {
-    if(((ax - bx)^2) + ((ay - by)^2) <= ((ar + br)^2)) return true;
+    if((pow((ax - bx), 2)) + (pow((ay - by), 2)) <= (pow((ar + br), 2))) return true;
     return false;
 }
 
-bool circle_rect_collide(int ax, int ay, int ar, int bx, int by, int bw, int bh)
+bool circle_rect_collide(float ax, float ay, float ar, float bx, float by, int bw, int bh)
 // stolen from the internet because there is no way in hell i would have come up with something this efficient
+// a is the cricle, b is the rectangle
 {
     bx = (bx + (bw/2));
     by = (by + (bh/2));
 
-    int xdiff = abs(ax - bx);
-    int ydiff = abs(ay - by);
+    float xdiff = abs(ax - bx);
+    float ydiff = abs(ay - by);
 
     if (xdiff > ((bw/2)+ar)) return false;
     if (ydiff > ((bh/2)+ar)) return false;
@@ -213,8 +229,36 @@ bool circle_rect_collide(int ax, int ay, int ar, int bx, int by, int bw, int bh)
     if (xdiff <= (bw/2)) return true;
     if (ydiff <= (bh/2)) return true;
 
-    if (((xdiff - (bw/2))^2) + ((ydiff - (bh/2))^2) <= (ar^2)) return true;
+    if ((pow((xdiff - (bw/2)), 2)) + (pow((ydiff - (bh/2)), 2)) <= pow(ar, 2)) return true;
     return false;
+}
+
+float Q_rsqrt( float number )
+// :3
+{
+	long i;
+	float x2, y;
+	const float threehalfs = 1.5F;
+
+	x2 = number * 0.5F;
+	y  = number;
+	i  = * ( long * ) &y;						// evil floating point bit level hacking
+	i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
+	y  = * ( float * ) &i;
+	y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
+//	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+
+	return y;
+}
+
+void find_vector(float ax, float ay, float bx, float by, float* vectx, float* vecty)
+{
+    float xdiff = (ax - bx);
+    float ydiff = (ay - by);
+
+    float norm_fact = Q_rsqrt((pow(xdiff,2) + pow(ydiff,2)));
+    *vectx = xdiff * norm_fact;
+    *vecty = ydiff * norm_fact;
 }
 
 float get_volume(bool is_music, float gain)
@@ -313,6 +357,7 @@ void sprites_init()
 
     sprites.bomb = sprite_grab(8, 36, ICON_W, ICON_H);
     sprites.life = sprite_grab(14, 36, ICON_W, ICON_H);
+    sprites.potion = sprite_grab(20, 37, 6, 6);
 
     sprites.ship_shot[0] = sprite_grab(20, 0, SHIP_SHOT_W[0], SHIP_SHOT_H[0]);
     sprites.ship_shot[1] = sprite_grab(23, 0, SHIP_SHOT_W[1], SHIP_SHOT_H[1]);
@@ -347,6 +392,7 @@ void sprites_deinit()
 
     al_destroy_bitmap(sprites.bomb);
     al_destroy_bitmap(sprites.life);
+    al_destroy_bitmap(sprites.potion);
 
     al_destroy_bitmap(sprites.ship_shot[0]);
     al_destroy_bitmap(sprites.ship_shot[1]);
@@ -399,7 +445,7 @@ void audio_init()
     must_init(sample_hitmarker, "hitmarker sound");
 
     sample_death = al_load_sample("death.flac");
-    must_init(sample_hitmarker, "death sound");
+    must_init(sample_death, "death sound");
 
 }
 
@@ -418,7 +464,7 @@ void fx_init()
         fx[i].used = false;
 }
 
-void fx_add(bool splash, int x, int y)
+void fx_add(bool splash, float x, float y)
 {
     if(!splash)
         al_play_sample(
@@ -474,8 +520,8 @@ void fx_draw()
             : sprites.explosion[frame_display]
         ;
 
-        int x = fx[i].x - (al_get_bitmap_width(bmp) / 2);
-        int y = fx[i].y - (al_get_bitmap_height(bmp) / 2);
+        float x = fx[i].x - (al_get_bitmap_width(bmp) / 2);
+        float y = fx[i].y - (al_get_bitmap_height(bmp) / 2);
         al_draw_bitmap(bmp, x, y, 0);
     }
 }
@@ -534,7 +580,7 @@ void shots_init()
         shots[i].used = false;
 }
 
-bool shots_add(bool ship, int type, int dx, int dy, int x, int y)
+bool shots_add(bool ship, int type, float dx, float dy, float x, float y)
 {
     al_play_sample(
         sample_shot,
@@ -610,7 +656,7 @@ void shots_update()
     }
 }
 
-bool shots_collide(bool ship, int x, int y, int w, int h)
+bool shots_collide(bool ship, float x, float y, int w, int h)
 {
     for(int i = 0; i < SHOTS_N; i++)
     {
@@ -644,7 +690,7 @@ bool shots_collide(bool ship, int x, int y, int w, int h)
     return false;
 }
 
-bool shots_graze(bool ship, int x, int y, int r)
+bool shots_graze(bool ship, float x, float y, float r)
 {
     for(int i = 0; i < SHOTS_N; i++)
     {
@@ -698,6 +744,79 @@ void shots_draw()
     }
 }
 
+void items_init()
+{
+    for(int i = 0; i < ITEM_N; i++)
+    {
+        items[i].used = false;
+    }
+}
+
+void items_update()
+{
+    for(int i = 0; i < ITEM_N; i++)
+    {
+        if(items[i].used)
+        {
+            if(circle_collide(ship.x+(SHIP_W/2), ship.y+(SHIP_H/2), GRAZE_R, items[i].x, items[i].y, items[i].size))
+                {
+                    float vectx, vecty;
+                    find_vector(items[i].x, items[i].y, ship.x, ship.y, &vectx, &vecty);
+                    items[i].x += vectx;
+                    items[i].y += vecty;
+
+                    if(circle_rect_collide(items[i].x, items[i].y, items[i].size, ship.x+(SHIP_W/2)-(HIT_W/2), ship.y+(SHIP_H/2)-(HIT_H/2), ship.x+(SHIP_W/2)+(HIT_W/2), ship.y+(SHIP_H/2)+(HIT_H/2)))
+                    // i enjoy very long if statements
+                    {
+                        items[i].used = false;
+                        // TODO: make this a case statement depending on item type, when you have more than one item
+                        if(ship.power <= MAX_POWER)
+                            ship.power += 1;
+                    }
+                }
+
+            items[i].y += 1;
+            if(items[i].y >= BUFFER_H)
+                items[i].used = false;
+        }
+    }
+}
+
+bool items_add(float x, float y, int type, float size)
+{
+    for(int i = 0; i < ITEM_N; i++)
+    {
+        if(items[i].used)
+        {
+            continue;
+        }
+
+        items[i].x = x;
+        items[i].y = y;
+        items[i].type = type;
+        items[i].size = size;
+        items[i].used = true;
+
+        return true;
+    }
+    printf("couldn't generate item");
+    return false;
+}
+
+void items_draw()
+{
+    for(int i = 0; i < ITEM_N; i++)
+    {
+        if(!items[i].used)
+        {
+            continue;
+        }
+
+        //TODO: make this a case statement based on item type
+        al_draw_bitmap(sprites.potion, items[i].x, items[i].y, 0);
+    }
+}
+
 void ship_init()
 {
     ship.x = (BUFFER_W / 2) - (SHIP_W / 2);
@@ -707,6 +826,7 @@ void ship_init()
     ship.bombs = 3;
     ship.respawn_timer = 0;
     ship.invincible_timer = 120;
+    ship.power = 0;
 }
 
 void ship_update()
@@ -761,8 +881,8 @@ void ship_update()
     {
         if(shots_collide(true, ship.x + 9, ship.y + 19, HIT_W, HIT_H))
         {
-            int x = ship.x + (SHIP_W / 2);
-            int y = ship.y + (SHIP_H / 2);
+            float x = ship.x + (SHIP_W / 2);
+            float y = ship.y + (SHIP_H / 2);
             al_play_sample(
                 sample_explode[1],
                 get_volume(false, 0.5),
@@ -778,8 +898,8 @@ void ship_update()
             if(rect_collide(ship.x+9, ship.y+19, ship.x+9+HIT_W, ship.y+19+HIT_H, aliens[i].x, aliens[i].y, aliens[i].x+ALIEN_W[aliens[i].type], aliens[i].y+ALIEN_H[aliens[i].type])
             && aliens[i].used) // 202 character if statement lol
                 {
-                    int x = ship.x + (SHIP_W / 2);
-                    int y = ship.y + (SHIP_H / 2);
+                    float x = ship.x + (SHIP_W / 2);
+                    float y = ship.y + (SHIP_H / 2);
                     al_play_sample(
                         sample_explode[1],
                         get_volume(false, 0.5),
@@ -812,13 +932,37 @@ void ship_update()
     else if(key[ALLEGRO_KEY_Z])
     {
         //shot pattern stuff
-        int x = ship.x + (SHIP_W / 2);
-
-        if(shots_add(true, 0, 0, -5, x+3, ship.y)
-        && shots_add(true, 0, 0, -5, x-3, ship.y)
-        && shots_add(true, 1, 1, -5, x+3, ship.y)
-        && shots_add(true, 1, -1, -5, x-3, ship.y))
+        float x = ship.x + (SHIP_W / 2);
+        if(ship.power < 10)
+        {
+            if(shots_add(true, 0, 0, -5, x, ship.y))
+                ship.shot_timer = 5;
+        }
+        else if(ship.power < 20)
+        {
+            if(shots_add(true, 0, 0, -5, x+3, ship.y)
+            && shots_add(true, 0, 0, -5, x-3, ship.y))
+                ship.shot_timer = 5;
+        }
+        else if(ship.power < 30)
+        {
+            if(shots_add(true, 0, 0, -5, x+3, ship.y)
+            && shots_add(true, 0, 0, -5, x-3, ship.y)
+            && shots_add(true, 1, 1, -5, x+3, ship.y)
+            && shots_add(true, 1, -1, -5, x-3, ship.y))
+                ship.shot_timer = 5;
+        }
+        else
+        {
+            if(shots_add(true, 0, 0, -5, x+3, ship.y)
+            && shots_add(true, 0, 0, -5, x-3, ship.y)
+            && shots_add(true, 1, 1, -5, x+3, ship.y)
+            && shots_add(true, 1, -1, -5, x-3, ship.y)
+            && shots_add(true, 1, 2, -5, x+3, ship.y)
+            && shots_add(true, 1, -2, -5, x-3, ship.y))
             ship.shot_timer = 5;
+        }
+        
     }
     // logic for bombing
     if (keydown[ALLEGRO_KEY_X] && (ship.bombs > 0))
@@ -837,9 +981,9 @@ void ship_draw()
         int rotation_scaler = M_PI/8;
         // death animation
         float angle = 0.1 * ship.frame;
-        int spacing = 2;
-        int drawposx = (ship.x+(SHIP_W/2)) + ((spacing * angle) * cos(angle));
-        int drawposy = (ship.y+(SHIP_H/2)) + ((spacing * angle) * sin(angle));
+        float spacing = 2;
+        float drawposx = (ship.x+(SHIP_W/2)) + ((spacing * angle) * cos(angle));
+        float drawposy = (ship.y+(SHIP_H/2)) + ((spacing * angle) * sin(angle));
         al_draw_scaled_rotated_bitmap(sprites.ship, SHIP_W/2, SHIP_H/2, drawposx, drawposy, 1.0/((0.1*ship.frame)+1), 1.0/((0.1*ship.frame)+1), ship.frame+1*rotation_scaler, 0);
         ship.frame++;
         return;
@@ -861,7 +1005,7 @@ void hair_init()
         hair[i].anim_state = i % 16;
 }
 
-int get_hair_anim(int anim_state)
+float get_hair_anim(int anim_state)
 // there's gotta be a math-ey way to do this, but it's probably only efficient at way higher numbers
 // that's what i'm telling myself anyway
 {
@@ -899,14 +1043,14 @@ void hair_draw()
     hair[0].last_x = hair[0].x;
     hair[0].x = ship.x + 8;
     hair[0].y = ship.y + 11;
-    int anim_offset = get_hair_anim(hair[0].anim_state);
+    float anim_offset = get_hair_anim(hair[0].anim_state);
     hair[0].anim_state = ((hair[0].anim_state + 15) % 16);
     al_draw_bitmap(sprites.hair, hair[0].x + anim_offset, hair[0].y, 0);
 
     for(int i = 1; i < MAX_HAIR_LEN; i++)
     // fucking unhinged hair physics bullshit
     {   
-        int anim_offset = get_hair_anim(hair[i].anim_state);
+        float anim_offset = get_hair_anim(hair[i].anim_state);
         hair[i].y = hair[i-1].y + 1; // this piece of hair is 1 pixel longer than the last
         hair[i].last_x = hair[i].x; // before we change the x we need to record what it was
 
@@ -953,7 +1097,7 @@ void aliens_update()
         ? 0
         : between(2, 4)
     ;
-    int new_x = between(10, BUFFER_W-50);
+    float new_x = between(10, BUFFER_W-50);
 
     for(int i = 0; i < ALIENS_N; i++)
     {
@@ -1040,13 +1184,14 @@ void aliens_update()
             aliens[i].blink = 4;
         }
 
-        int cx = aliens[i].x + (ALIEN_W[aliens[i].type] / 2);
-        int cy = aliens[i].y + (ALIEN_H[aliens[i].type] / 2);
+        float cx = aliens[i].x + (ALIEN_W[aliens[i].type] / 2);
+        float cy = aliens[i].y + (ALIEN_H[aliens[i].type] / 2);
 
         // alien death logic
         if(aliens[i].life <= 0)
         {
             fx_add(false, cx, cy);
+            items_add(aliens[i].x, aliens[i].y, 0, 1);
 
             switch(aliens[i].type) // defines how much score you get for killing an alien
             {
@@ -1241,6 +1386,7 @@ int main()
     ship_init();
     hair_init();
     aliens_init();
+    items_init();
     stars_init();
 
     frames = 0;
@@ -1286,6 +1432,7 @@ int main()
                     stars_update();
                     ship_update();
                     aliens_update();
+                    items_update();
                     hud_update();
                 }
                 
@@ -1316,6 +1463,7 @@ int main()
             stars_draw();
             aliens_draw();
             fx_draw();
+            items_draw();
             ship_draw();
             hair_draw(); // i have decided the hair waving even while paused is an ascended bug
             hitbox_draw();
