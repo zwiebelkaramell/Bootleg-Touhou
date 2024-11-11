@@ -761,9 +761,9 @@ void items_update()
             if(circle_collide(ship.x+(SHIP_W/2), ship.y+(SHIP_H/2), GRAZE_R, items[i].x, items[i].y, items[i].size))
                 {
                     float vectx, vecty;
-                    find_vector(items[i].x, items[i].y, ship.x, ship.y, &vectx, &vecty);
-                    items[i].x += vectx;
-                    items[i].y += vecty;
+                    find_vector(items[i].x, items[i].y, (ship.x+(SHIP_W/2)), (ship.y+(SHIP_H/2)), &vectx, &vecty);
+                    items[i].x -= vectx;
+                    items[i].y -= vecty;
 
                     if(circle_rect_collide(items[i].x, items[i].y, items[i].size, ship.x+(SHIP_W/2)-(HIT_W/2), ship.y+(SHIP_H/2)-(HIT_H/2), ship.x+(SHIP_W/2)+(HIT_W/2), ship.y+(SHIP_H/2)+(HIT_H/2)))
                     // i enjoy very long if statements
@@ -773,6 +773,7 @@ void items_update()
                         if(ship.power <= MAX_POWER)
                             ship.power += 1;
                     }
+                    continue;
                 }
 
             items[i].y += 1;
