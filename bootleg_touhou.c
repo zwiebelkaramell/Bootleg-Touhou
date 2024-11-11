@@ -582,15 +582,6 @@ void shots_init()
 
 bool shots_add(bool ship, int type, float dx, float dy, float x, float y)
 {
-    al_play_sample(
-        sample_shot,
-        get_volume(false, 0.3),
-        get_pan(x),
-        ship ? 1.0 : between_f(1.5, 1.6),
-        ALLEGRO_PLAYMODE_ONCE,
-        NULL
-    );
-
     for(int i = 0; i < SHOTS_N; i++)
     {
         if(shots[i].used)
@@ -938,12 +929,30 @@ void ship_update()
         {
             if(shots_add(true, 0, 0, -5, x, ship.y))
                 ship.shot_timer = 5;
+
+            al_play_sample(
+                sample_shot,
+                get_volume(false, 0.3),
+                get_pan(x),
+                1.0,
+                ALLEGRO_PLAYMODE_ONCE,
+                NULL
+            );
         }
         else if(ship.power < 20)
         {
             if(shots_add(true, 0, 0, -5, x+3, ship.y)
             && shots_add(true, 0, 0, -5, x-3, ship.y))
                 ship.shot_timer = 5;
+
+            al_play_sample(
+                sample_shot,
+                get_volume(false, 0.3),
+                get_pan(x),
+                1.0,
+                ALLEGRO_PLAYMODE_ONCE,
+                NULL
+            );    
         }
         else if(ship.power < 30)
         {
@@ -952,6 +961,15 @@ void ship_update()
             && shots_add(true, 1, 1, -5, x+3, ship.y)
             && shots_add(true, 1, -1, -5, x-3, ship.y))
                 ship.shot_timer = 5;
+
+            al_play_sample(
+                sample_shot,
+                get_volume(false, 0.3),
+                get_pan(x),
+                1.0,
+                ALLEGRO_PLAYMODE_ONCE,
+                NULL
+            );
         }
         else
         {
@@ -962,6 +980,15 @@ void ship_update()
             && shots_add(true, 1, 2, -5, x+3, ship.y)
             && shots_add(true, 1, -2, -5, x-3, ship.y))
             ship.shot_timer = 5;
+
+            al_play_sample(
+                sample_shot,
+                get_volume(false, 0.3),
+                get_pan(x),
+                1.0,
+                ALLEGRO_PLAYMODE_ONCE,
+                NULL
+            );
         }
         
     }
@@ -1231,17 +1258,47 @@ void aliens_update()
                     // TODO: what kind of shots does yellow use?
                     shots_add(false, 0, 0, 2, cx, cy);
                     aliens[i].shot_timer = 80;
+
+                    al_play_sample(
+                        sample_shot,
+                        get_volume(false, 0.3),
+                        get_pan(cx),
+                        between_f(1.5, 1.6),
+                        ALLEGRO_PLAYMODE_ONCE,
+                        NULL
+                    );
+
                     break;
                 case ALIEN_TYPE_PURPLE:
                     // TODO: what kind of shots does purple use?
                     shots_add(false, 2, 0, 2, cx+6, cy);
                     shots_add(false, 2, 0, 2, cx-6, cy);
                     aliens[i].shot_timer = 160;
+
+                    al_play_sample(
+                        sample_shot,
+                        get_volume(false, 0.3),
+                        get_pan(cx),
+                        between_f(1.5, 1.6),
+                        ALLEGRO_PLAYMODE_ONCE,
+                        NULL
+                    );
+
                     break;
                 case ALIEN_TYPE_GREEN:
                     // TODO: what kind of shots does green use?
                     shots_add(false, 3, 0, 1, cx, cy);
                     aliens[i].shot_timer = 200;
+
+                    al_play_sample(
+                        sample_shot,
+                        get_volume(false, 0.3),
+                        get_pan(cx),
+                        between_f(1.5, 1.6),
+                        ALLEGRO_PLAYMODE_ONCE,
+                        NULL
+                    );
+
                     break;
             }
         }
@@ -1375,7 +1432,7 @@ int main()
 
     must_init(al_install_audio(), "audio");
     must_init(al_init_acodec_addon(), "audio codecs");
-    must_init(al_reserve_samples(16), "reserve samples");
+    must_init(al_reserve_samples(256), "reserve samples");
 
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_display_event_source(disp));
