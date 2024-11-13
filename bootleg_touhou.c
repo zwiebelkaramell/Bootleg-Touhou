@@ -426,6 +426,8 @@ ALLEGRO_SAMPLE* sample_shot;
 ALLEGRO_SAMPLE* sample_explode[2];
 ALLEGRO_SAMPLE* sample_hitmarker;
 ALLEGRO_SAMPLE* sample_death;
+ALLEGRO_SAMPLE* sample_hairloss;
+ALLEGRO_SAMPLE* sample_graze;
 
 void audio_init()
 {
@@ -447,6 +449,12 @@ void audio_init()
     sample_death = al_load_sample("death.flac");
     must_init(sample_death, "death sound");
 
+    sample_hairloss = al_load_sample("hairloss.flac");
+    must_init(sample_hairloss, "hairloss sound");
+
+    sample_graze = al_load_sample("graze.flac");
+    must_init(sample_graze, "graze sound");
+
 }
 
 void audio_deinit()
@@ -456,6 +464,8 @@ void audio_deinit()
     al_destroy_sample(sample_explode[1]);
     al_destroy_sample(sample_hitmarker);
     al_destroy_sample(sample_death);
+    al_destroy_sample(sample_hairloss);
+    al_destroy_sample(sample_graze);
 }
 
 void fx_init()
@@ -916,6 +926,14 @@ void ship_update()
         {
             hair_len++;
         }
+        al_play_sample(
+            sample_graze,
+            get_volume(false, 0.3),
+            0.5,
+            1.0,
+            ALLEGRO_PLAYMODE_ONCE,
+            NULL
+        );
     }
 
     // logic for shooting
@@ -1480,6 +1498,14 @@ int main()
                     if (hitstop_timer % 2 == 1)
                     {
                         hair_len -= 1;
+                        al_play_sample(
+                            sample_hairloss,
+                            get_volume(false, 0.3),
+                            get_pan(ship.x),
+                            1,
+                            ALLEGRO_PLAYMODE_ONCE,
+                            NULL
+                        );
                     }
                     hitstop_timer -= 1;
                 }
