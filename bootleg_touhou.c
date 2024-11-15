@@ -58,6 +58,11 @@ ALLEGRO_BITMAP* buffer;
 
 #define MAX_SCORE_MULT 200
 
+#define BOMB_LENGTH 180
+#define DEATHBOMB_LENGTH 60
+#define BOMB_SIZE 100.0
+#define DEATHBOMB_SIZE 60.0
+
 // globals
 long frames;
 long score;
@@ -73,6 +78,7 @@ const int SHIP_SHOT_W[] = {3, 5, 7};
 const int SHIP_SHOT_H[] = {11, 5, 7};
 int hitstop_timer = 0;
 bool is_paused = 0;
+bool bombing = 0;
 int score_mult = 1;
 
 // structures
@@ -177,6 +183,17 @@ typedef struct ITEM
 } ITEM;
 #define ITEM_N 1024
 ITEM items[ITEM_N];
+
+typedef struct BOMB
+// structure for the object that handles player bombing
+{
+    float x, y;
+    int frame;
+    int length;
+    float size; /*collision radius for destroying aliens*/
+    float max_size;
+} BOMB;
+BOMB bomb;
 
 typedef struct STAR
 {
@@ -547,28 +564,69 @@ void fx_draw()
     }
 }
 
-void do_bomb()
+void do_bomb(int length, float max_size)
 // adds a new bomb
 {
-    for (int i = 0; i < ALIENS_N; i++)
-    {
-        aliens[i].life = 0;
-    }
-    for (int i = 0; i < SHOTS_N; i++)
-    {
-        shots[i].used = false;
-    }
-    printf("Bombing\n");
+    bombing = true;
+    bomb.x = ship.x+(SHIP_W/2);
+    bomb.y = ship.y+(SHIP_H/2);
+    bomb.frame = 0;
+    bomb.size = 0;
+    bomb.length = length;
+    bomb.max_size = max_size;
+    ship.invincible_timer = length;
 }
 
 void bomb_update()
+// does internal logic for the bomb
 {
+    if(bomb.frame < bomb.length
+    && bombing)
+    {
+        bomb.x = ship.x+(SHIP_W/2);
+        bomb.y = ship.y+(SHIP_H/2);
 
+        for(int i = 0; i < ALIENS_N; i++)
+        {   
+            if(aliens[i].used)
+            {
+                if(circle_rect_collide(bomb.x, bomb.y, bomb.size, aliens[i].x, aliens[i].y, ALIEN_W[aliens[i].type], ALIEN_H[aliens[i].type]))
+                {
+                    aliens[i].life = 0;
+                    printf("aliem hit\n");
+                }
+            }
+        }
+        for(int i = 0; i < SHOTS_N; i++)
+        {
+            if(shots[i].used && !shots[i].ship)
+            {
+                if(circle_rect_collide(bomb.x, bomb.y, bomb.size, shots[i].x, shots[i].y, ALIEN_SHOT_W[shots[i].type], ALIEN_SHOT_H[shots[i].type]))
+                {
+                    shots[i].used = false;
+                    printf("shot hit\n");
+                }
+            }
+        }
+
+        if(bomb.size < bomb.max_size)
+            bomb.size += 1;
+        bomb.frame += 1;
+    }
+    else if(bombing)
+    {
+        bombing = false;
+    }
 }
 
 void bomb_draw()
+// draws the bomb to the screen
 {
-
+    //TODO: rework this to make bombing look really epic
+    if(bombing)
+    {
+        al_draw_filled_circle(bomb.x, bomb.y, bomb.size, al_map_rgb_f(1,0,0));
+    }
 }
 
 void do_deathbomb()
@@ -1045,7 +1103,7 @@ void ship_update()
     if (keydown[ALLEGRO_KEY_X] && (ship.bombs > 0))
     {
         ship.bombs -= 1;
-        do_bomb();
+        do_bomb(BOMB_LENGTH, BOMB_SIZE);
     }
 }
 
@@ -1613,6 +1671,7 @@ int main()
                     stars_update();
                     ship_update();
                     aliens_update();
+                    bomb_update();
                     items_update();
                     hud_update();
                 }
@@ -1642,6 +1701,7 @@ int main()
             al_clear_to_color(al_map_rgb(0,0,0));
 
             stars_draw();
+            bomb_draw();
             aliens_draw();
             fx_draw();
             items_draw();
