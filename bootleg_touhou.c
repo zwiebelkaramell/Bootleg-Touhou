@@ -50,7 +50,13 @@ ALLEGRO_BITMAP* buffer;
 #define SHIP_MAX_X (BUFFER_W - SHIP_W)
 #define SHIP_MAX_Y (BUFFER_H - SHIP_H)
 #define MAX_HAIR_LEN 30
+
+#define POW_LVL_1 10
+#define POW_LVL_2 20
+#define POW_LVL_3 30
 #define MAX_POWER 40
+
+#define MAX_SCORE_MULT 200
 
 // globals
 long frames;
@@ -67,6 +73,7 @@ const int SHIP_SHOT_W[] = {3, 5, 7};
 const int SHIP_SHOT_H[] = {11, 5, 7};
 int hitstop_timer = 0;
 bool is_paused = 0;
+int score_mult = 1;
 
 // structures
 typedef struct SPRITES
@@ -141,6 +148,8 @@ typedef struct ALIEN
     float x, y;
     ALIEN_TYPE type;
     int shot_timer;
+    int shot_count;
+    float aimx, aimy;
     int blink;
     int life;
     bool used;
@@ -252,6 +261,8 @@ float Q_rsqrt( float number )
 }
 
 void find_vector(float ax, float ay, float bx, float by, float* vectx, float* vecty)
+// returns a normalized vector pointing from bx, by to ax, ay
+// output is two pointers, not an actual return value
 {
     float xdiff = (ax - bx);
     float ydiff = (ay - by);
@@ -537,7 +548,7 @@ void fx_draw()
 }
 
 void do_bomb()
-// what happens when the player bombs
+// adds a new bomb
 {
     for (int i = 0; i < ALIENS_N; i++)
     {
@@ -548,6 +559,16 @@ void do_bomb()
         shots[i].used = false;
     }
     printf("Bombing\n");
+}
+
+void bomb_update()
+{
+
+}
+
+void bomb_draw()
+{
+
 }
 
 void do_deathbomb()
@@ -763,8 +784,8 @@ void items_update()
                 {
                     float vectx, vecty;
                     find_vector(items[i].x, items[i].y, (ship.x+(SHIP_W/2)), (ship.y+(SHIP_H/2)), &vectx, &vecty);
-                    items[i].x -= vectx;
-                    items[i].y -= vecty;
+                    items[i].x -= 2*vectx;
+                    items[i].y -= 2*vecty;
 
                     if(circle_rect_collide(items[i].x, items[i].y, items[i].size, ship.x+(SHIP_W/2)-(HIT_W/2), ship.y+(SHIP_H/2)-(HIT_H/2), ship.x+(SHIP_W/2)+(HIT_W/2), ship.y+(SHIP_H/2)+(HIT_H/2)))
                     // i enjoy very long if statements
@@ -772,7 +793,17 @@ void items_update()
                         items[i].used = false;
                         // TODO: make this a case statement depending on item type, when you have more than one item
                         if(ship.power <= MAX_POWER)
+                        {
                             ship.power += 1;
+                        }
+                        else
+                        {
+                            score += score_mult;
+                            if(score_mult < MAX_SCORE_MULT)
+                            {
+                                score_mult *= 2;
+                            }
+                        }
                     }
                     continue;
                 }
@@ -943,7 +974,7 @@ void ship_update()
     {
         //shot pattern stuff
         float x = ship.x + (SHIP_W / 2);
-        if(ship.power < 10)
+        if(ship.power < POW_LVL_1)
         {
             if(shots_add(true, 0, 0, -5, x, ship.y))
                 ship.shot_timer = 5;
@@ -957,7 +988,7 @@ void ship_update()
                 NULL
             );
         }
-        else if(ship.power < 20)
+        else if(ship.power < POW_LVL_2)
         {
             if(shots_add(true, 0, 0, -5, x+3, ship.y)
             && shots_add(true, 0, 0, -5, x-3, ship.y))
@@ -972,7 +1003,7 @@ void ship_update()
                 NULL
             );    
         }
-        else if(ship.power < 30)
+        else if(ship.power < POW_LVL_3)
         {
             if(shots_add(true, 0, 0, -5, x+3, ship.y)
             && shots_add(true, 0, 0, -5, x-3, ship.y)
@@ -1133,7 +1164,10 @@ void hitbox_draw()
 void aliens_init()
 {
     for(int i = 0; i < ALIENS_N; i++)
+    {
         aliens[i].used = false;
+        aliens[i].shot_count = 0;
+    }
 }
 
 void aliens_update()
@@ -1218,16 +1252,58 @@ void aliens_update()
 
         if(shots_collide(false, aliens[i].x, aliens[i].y, ALIEN_W[aliens[i].type], ALIEN_H[aliens[i].type]))
         {
-            al_play_sample(
-            sample_hitmarker,
-            get_volume(false, .75),
-            get_pan(aliens[i].x),
-            1,
-            ALLEGRO_PLAYMODE_ONCE,
-            NULL
-            );
-            aliens[i].life--;
-            aliens[i].blink = 4;
+            if(ship.power < POW_LVL_1)
+            {
+                al_play_sample(
+                    sample_hitmarker,
+                    get_volume(false, 1),
+                    get_pan(aliens[i].x),
+                    1,
+                    ALLEGRO_PLAYMODE_ONCE,
+                    NULL
+                );
+                aliens[i].life -= 3;
+                aliens[i].blink = 4;
+            }
+            else if(ship.power < POW_LVL_2)
+            {
+                al_play_sample(
+                    sample_hitmarker,
+                    get_volume(false, .75),
+                    get_pan(aliens[i].x),
+                    1,
+                    ALLEGRO_PLAYMODE_ONCE,
+                    NULL
+                );
+                aliens[i].life -= 2;
+                aliens[i].blink = 4;
+            }
+            else if(ship.power < POW_LVL_3)
+            {
+                al_play_sample(
+                    sample_hitmarker,
+                    get_volume(false, .5),
+                    get_pan(aliens[i].x),
+                    1,
+                    ALLEGRO_PLAYMODE_ONCE,
+                    NULL
+                );
+                aliens[i].life -= 2;
+                aliens[i].blink = 4;
+            }
+            else
+            {
+                al_play_sample(
+                    sample_hitmarker,
+                    get_volume(false, .30),
+                    get_pan(aliens[i].x),
+                    1,
+                    ALLEGRO_PLAYMODE_ONCE,
+                    NULL
+                );
+                aliens[i].life -= 2;
+                aliens[i].blink = 4;
+            }
         }
 
         float cx = aliens[i].x + (ALIEN_W[aliens[i].type] / 2);
@@ -1274,8 +1350,28 @@ void aliens_update()
                     break;
                 case ALIEN_TYPE_YELLOW:
                     // TODO: what kind of shots does yellow use?
-                    shots_add(false, 0, 0, 2, cx, cy);
-                    aliens[i].shot_timer = 80;
+                    float vectx, vecty;
+                    if(aliens[i].shot_count == 0)
+                    {
+                        find_vector(ship.x+(SHIP_W/2), ship.y+(SHIP_H/2), cx, cy, &vectx, &vecty);
+                        aliens[i].aimx = (2 * vectx);
+                        aliens[i].aimy = (2 * vecty);
+                        shots_add(false, 0, aliens[i].aimx, aliens[i].aimy, cx, cy);
+                        aliens[i].shot_timer = 10;
+                        aliens[i].shot_count += 1;
+                    }
+                    else if(aliens[i].shot_count < 2)
+                    {
+                        shots_add(false, 0, aliens[i].aimx, aliens[i].aimy, cx, cy);
+                        aliens[i].shot_timer = 10;
+                        aliens[i].shot_count += 1;
+                    }
+                    else
+                    {
+                        shots_add(false, 0, aliens[i].aimx, aliens[i].aimy, cx, cy);
+                        aliens[i].shot_timer = 80;
+                        aliens[i].shot_count = 0;
+                    }
 
                     al_play_sample(
                         sample_shot,
