@@ -1181,6 +1181,10 @@ void aliens_update()
 
     for(int i = 0; i < ALIENS_N; i++)
     {
+
+        float cx = aliens[i].x + (ALIEN_W[aliens[i].type] / 2);
+        float cy = aliens[i].y + (ALIEN_H[aliens[i].type] / 2);
+
         if(!aliens[i].used)
         {
             // if this alien is unused, should it spawn?
@@ -1306,14 +1310,11 @@ void aliens_update()
             }
         }
 
-        float cx = aliens[i].x + (ALIEN_W[aliens[i].type] / 2);
-        float cy = aliens[i].y + (ALIEN_H[aliens[i].type] / 2);
-
         // alien death logic
         if(aliens[i].life <= 0)
         {
             fx_add(false, cx, cy);
-            items_add(aliens[i].x, aliens[i].y, 0, 1);
+            items_add(cx-3, cy-3, 0, 1);
 
             switch(aliens[i].type) // defines how much score you get for killing an alien
             {
