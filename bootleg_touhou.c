@@ -59,7 +59,7 @@ ALLEGRO_BITMAP* buffer;
 #define MAX_SCORE_MULT 200
 
 #define BOMB_LENGTH 180
-#define DEATHBOMB_LENGTH 60
+#define DEATHBOMB_LENGTH 90
 #define BOMB_SIZE 100.0
 #define DEATHBOMB_SIZE 60.0
 
@@ -77,9 +77,11 @@ const int ALIEN_SHOT_H[] = {5, 9, 20, 8};
 const int SHIP_SHOT_W[] = {3, 5, 7};
 const int SHIP_SHOT_H[] = {11, 5, 7};
 int hitstop_timer = 0;
+int mango_timer = 0;
 bool is_paused = 0;
 bool bombing = 0;
 int score_mult = 1;
+float speed_mult = 1;
 
 // structures
 typedef struct SPRITES
@@ -101,6 +103,7 @@ typedef struct SPRITES
     ALLEGRO_BITMAP* hair;
 
     ALLEGRO_BITMAP* bomb;
+    ALLEGRO_BITMAP* mango;
 
 } SPRITES;
 SPRITES sprites;
@@ -176,7 +179,7 @@ typedef struct ITEM
 // structure for things the player can pickup (powerups, points, etc)
 {
     float x, y;
-    int type; /*0 is small powerup*/
+    int type; /*0 is small powerup, 1 is mango*/
     float size; /*collision radius for pickup logic*/
     bool used;
 
@@ -410,6 +413,8 @@ void sprites_init()
     sprites.splash[0] = sprite_grab(35, 24, 7, 8);
     sprites.splash[1] = sprite_grab(42, 24, 11, 10);
 
+    sprites.mango = sprite_grab(26, 38, 2, 3);
+
     sprites.hair = sprite_grab(8, 7, 4, 1);
 }
 
@@ -444,6 +449,8 @@ void sprites_deinit()
 
     al_destroy_bitmap(sprites.splash[0]);
     al_destroy_bitmap(sprites.splash[1]);
+
+    al_destroy_bitmap(sprites.mango);
 
     al_destroy_bitmap(sprites.hair);
 
@@ -575,6 +582,7 @@ void do_bomb(int length, float max_size)
     bomb.length = length;
     bomb.max_size = max_size;
     ship.invincible_timer = length;
+    speed_mult = 0.5;
 }
 
 void bomb_update()
@@ -616,6 +624,7 @@ void bomb_update()
     else if(bombing)
     {
         bombing = false;
+        speed_mult = 1.0;
     }
 }
 
@@ -629,20 +638,6 @@ void bomb_draw()
     }
 }
 
-void do_deathbomb()
-// a weaker bomb that activates if you bomb during hitstop
-{
-    hitstop_timer = 0;
-    for (int i = 0; i < ALIENS_N; i++)
-    {
-        aliens[i].used = false;
-    }
-    for (int i = 0; i < SHOTS_N; i++)
-    {
-        shots[i].used = false;
-    }
-}
-
 void player_dies()
 // what happens when the player dies
 {
@@ -651,6 +646,9 @@ void player_dies()
     ship.invincible_timer = ship.respawn_timer + 90;
     ship.frame = 0;
     hair_len = 15;
+    score_mult = 1;
+    speed_mult = 1.0;
+    ship.power = (ship.power/2);
     if (ship.bombs < 3)
         ship.bombs = 3;
     al_play_sample(
@@ -850,18 +848,28 @@ void items_update()
                     {
                         items[i].used = false;
                         // TODO: make this a case statement depending on item type, when you have more than one item
-                        if(ship.power <= MAX_POWER)
+                        switch(items[i].type)
                         {
-                            ship.power += 1;
+                            case 0: /* potion */
+                                if(ship.power <= MAX_POWER)
+                                {
+                                    ship.power += 1;
+                                }
+                                else
+                                {
+                                    score += score_mult;
+                                    if(score_mult < MAX_SCORE_MULT)
+                                    {
+                                        score_mult *= 2;
+                                    }
+                                }
+                                break;
+                            case 1: /*mango*/
+                                if(speed_mult = 1.0)
+                                    speed_mult = 2.0;
+                                break;
                         }
-                        else
-                        {
-                            score += score_mult;
-                            if(score_mult < MAX_SCORE_MULT)
-                            {
-                                score_mult *= 2;
-                            }
-                        }
+                        
                     }
                     continue;
                 }
@@ -903,8 +911,15 @@ void items_draw()
             continue;
         }
 
-        //TODO: make this a case statement based on item type
-        al_draw_bitmap(sprites.potion, items[i].x, items[i].y, 0);
+        switch(items[i].type)
+        {
+            case 0:
+                al_draw_bitmap(sprites.potion, items[i].x, items[i].y, 0);
+                break;
+            case 1:
+                al_draw_bitmap(sprites.mango, items[i].x, items[i].y, 0);
+                break;
+        }
     }
 }
 
@@ -935,24 +950,24 @@ void ship_update()
     if(key[ALLEGRO_KEY_LSHIFT])
     {
         if(key[ALLEGRO_KEY_LEFT])
-            ship.x -= FOCUS_SPEED;
+            ship.x -= (int)(FOCUS_SPEED * speed_mult);
         if(key[ALLEGRO_KEY_RIGHT])
-            ship.x += FOCUS_SPEED;
+            ship.x += (int)(FOCUS_SPEED * speed_mult);
         if(key[ALLEGRO_KEY_UP])
-            ship.y -= FOCUS_SPEED;
+            ship.y -= (int)(FOCUS_SPEED * speed_mult);
         if(key[ALLEGRO_KEY_DOWN])
-            ship.y += FOCUS_SPEED;
+            ship.y += (int)(FOCUS_SPEED * speed_mult);
     }
     else
     {
         if(key[ALLEGRO_KEY_LEFT])
-            ship.x -= SHIP_SPEED;
+            ship.x -= (int)(SHIP_SPEED * speed_mult);
         if(key[ALLEGRO_KEY_RIGHT])
-            ship.x += SHIP_SPEED;
+            ship.x += (int)(SHIP_SPEED * speed_mult);
         if(key[ALLEGRO_KEY_UP])
-            ship.y -= SHIP_SPEED;
+            ship.y -= (int)(SHIP_SPEED * speed_mult);
         if(key[ALLEGRO_KEY_DOWN])
-            ship.y += SHIP_SPEED;
+            ship.y += (int)(SHIP_SPEED * speed_mult);
     }
 
     if(ship.x < 0)
@@ -1097,7 +1112,15 @@ void ship_update()
                 NULL
             );
         }
-        
+        mango_timer = 0;
+    }
+    else
+    {
+        mango_timer += 1;
+        if(mango_timer > 600)
+        {
+            items_add(between(0, BUFFER_W-2), 0, 1, 1);
+        }
     }
     // logic for bombing
     if (keydown[ALLEGRO_KEY_X] && (ship.bombs > 0))
@@ -1648,7 +1671,8 @@ int main()
                     if (keydown[ALLEGRO_KEY_X] && (ship.bombs > 0))
                     {
                         ship.bombs -= 1;
-                        do_deathbomb();
+                        do_bomb(DEATHBOMB_LENGTH, DEATHBOMB_SIZE);
+                        hitstop_timer = 0;
                     }
                     if (hitstop_timer % 2 == 1)
                     {
