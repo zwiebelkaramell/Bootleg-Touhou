@@ -15,10 +15,15 @@ ALLEGRO_DISPLAY* disp;
 ALLEGRO_BITMAP* buffer;
 
 // constants
-#define BUFFER_W 320
-#define BUFFER_H 240
+#define PLAYAREA_W 576
+#define PLAYAREA_H 672
+#define PLAYAREA_OFFSET_X 48
+#define PLAYAREA_OFFSET_Y 24
 
-#define DISP_SCALE 3
+#define BUFFER_W 960
+#define BUFFER_H 720
+
+#define DISP_SCALE 1
 #define DISP_W (BUFFER_W * DISP_SCALE)
 #define DISP_H (BUFFER_H * DISP_SCALE)
 
@@ -47,8 +52,8 @@ ALLEGRO_BITMAP* buffer;
 
 #define SHIP_SPEED 3
 #define FOCUS_SPEED 1
-#define SHIP_MAX_X (BUFFER_W - SHIP_W)
-#define SHIP_MAX_Y (BUFFER_H - SHIP_H)
+#define SHIP_MAX_X (PLAYAREA_W - SHIP_W)
+#define SHIP_MAX_Y (PLAYAREA_H - SHIP_H)
 #define MAX_HAIR_LEN 30
 
 #define POW_LVL_1 10
@@ -203,7 +208,7 @@ typedef struct STAR
     float y;
     float speed;
 } STAR;
-#define STARS_N ((BUFFER_W / 2) - 1)
+#define STARS_N ((PLAYAREA_W / 2) - 1)
 STAR stars[STARS_N];
 
 
@@ -302,7 +307,7 @@ float get_volume(bool is_music, float gain)
 float get_pan(float x)
 // returns proper panning for a sound given it's x coordinate
 {
-    return ((x / (float)(BUFFER_W / 2)) - 1.0);
+    return ((x / (float)(PLAYAREA_W / 2)) - 1.0);
 }
 
 void disp_init()
@@ -330,8 +335,11 @@ void disp_pre_draw()
 
 void disp_post_draw()
 {
-    al_set_target_backbuffer(disp);
-    al_draw_scaled_bitmap(buffer, 0, 0, BUFFER_W, BUFFER_H, 0, 0, DISP_W, DISP_H, 0);
+    /*TODO: make a border, move score information to the right of the screen*/
+
+    //draws the playarea
+    al_set_target_backbuffer(disp); 
+    al_draw_scaled_bitmap(buffer, 0, 0, BUFFER_W, BUFFER_H, PLAYAREA_OFFSET_X, PLAYAREA_OFFSET_Y, DISP_W, DISP_H, 0);
 
     al_flip_display();
 }
@@ -707,9 +715,12 @@ void shots_update()
             continue;
 
         if(shots[i].ship)
-        {
-            if(shots[i].y < -SHIP_SHOT_H[shots[i].type])
-            {
+        {   
+            if((shots[i].x < -ALIEN_SHOT_W[shots[i].type])
+            || (shots[i].x > PLAYAREA_W)
+            || (shots[i].y < -ALIEN_SHOT_H[shots[i].type])
+            || (shots[i].y > PLAYAREA_H)
+            ) {
                 shots[i].used = false;
                 continue;
             }
@@ -718,9 +729,9 @@ void shots_update()
         {
 
             if((shots[i].x < -ALIEN_SHOT_W[shots[i].type])
-            || (shots[i].x > BUFFER_W)
+            || (shots[i].x > PLAYAREA_W)
             || (shots[i].y < -ALIEN_SHOT_H[shots[i].type])
-            || (shots[i].y > BUFFER_H)
+            || (shots[i].y > PLAYAREA_H)
             ) {
                 shots[i].used = false;
                 continue;
@@ -864,7 +875,7 @@ void items_update()
                                     }
                                 }
                                 break;
-                            case 1: /*mango*/
+                            case 1: /* mango */
                                 if(speed_mult = 1.0)
                                     speed_mult = 2.0;
                                 break;
@@ -875,7 +886,7 @@ void items_update()
                 }
 
             items[i].y += 1;
-            if(items[i].y >= BUFFER_H)
+            if(items[i].y >= PLAYAREA_H)
                 items[i].used = false;
         }
     }
@@ -925,8 +936,8 @@ void items_draw()
 
 void ship_init()
 {
-    ship.x = (BUFFER_W / 2) - (SHIP_W / 2);
-    ship.y = (BUFFER_H / 2) - (SHIP_H / 2);
+    ship.x = (PLAYAREA_W - (PLAYAREA_W / 2)) - (SHIP_W / 2);
+    ship.y = (PLAYAREA_H - (PLAYAREA_H / 4)) - (SHIP_H / 2);
     ship.shot_timer = 0;
     ship.lives = 3;
     ship.bombs = 3;
@@ -1033,7 +1044,7 @@ void ship_update()
         al_play_sample(
             sample_graze,
             get_volume(false, 0.3),
-            0.5,
+            0,
             1.0,
             ALLEGRO_PLAYMODE_ONCE,
             NULL
@@ -1119,7 +1130,7 @@ void ship_update()
         mango_timer += 1;
         if(mango_timer > 600)
         {
-            items_add(between(0, BUFFER_W-2), 0, 1, 1);
+            items_add(between(0, PLAYAREA_W-2), 0, 1, 1);
         }
     }
     // logic for bombing
@@ -1258,7 +1269,7 @@ void aliens_update()
         ? 0
         : between(2, 4)
     ;
-    float new_x = between(10, BUFFER_W-50);
+    float new_x = between(10, PLAYAREA_W-50);
 
     for(int i = 0; i < ALIENS_N; i++)
     {
@@ -1272,8 +1283,8 @@ void aliens_update()
             if(new_quota > 0)
             {
                 new_x += between(40, 80);
-                if(new_x > (BUFFER_W - 60))
-                    new_x -= (BUFFER_W - 60);
+                if(new_x > (PLAYAREA_W - 60))
+                    new_x -= (PLAYAREA_W - 60);
 
                 aliens[i].x = new_x;
 
@@ -1326,7 +1337,7 @@ void aliens_update()
                 break;
         }
 
-        if(aliens[i].y >= BUFFER_H)
+        if(aliens[i].y >= PLAYAREA_H)
         {
             aliens[i].used = false;
             continue;
@@ -1518,7 +1529,7 @@ void stars_init()
 {
     for(int i = 0; i < STARS_N; i++)
     {
-        stars[i].y = between_f(0, BUFFER_H);
+        stars[i].y = between_f(0, PLAYAREA_H);
         stars[i].speed = between_f(0.1, 1);
     }
 }
@@ -1528,7 +1539,7 @@ void stars_update()
     for(int i = 0; i < STARS_N; i++)
     {
         stars[i].y += stars[i].speed;
-        if(stars[i].y >= BUFFER_H)
+        if(stars[i].y >= PLAYAREA_H)
         {
             stars[i].y = 0;
             stars[i].speed = between_f(0.1, 1);
@@ -1597,7 +1608,7 @@ void hud_draw()
         al_draw_text(
             font,
             al_map_rgb_f(1,1,1),
-            BUFFER_W / 2, BUFFER_H / 2,
+            PLAYAREA_W / 2, PLAYAREA_H / 2,
             ALLEGRO_ALIGN_CENTER,
             "G A M E  O V E R"
         );
