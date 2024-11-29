@@ -13,6 +13,7 @@
 // aliases
 ALLEGRO_DISPLAY* disp;
 ALLEGRO_BITMAP* buffer;
+ALLEGRO_BITMAP* playarea;
 
 // constants
 #define PLAYAREA_W 576
@@ -92,6 +93,7 @@ float speed_mult = 1;
 typedef struct SPRITES
 {
     ALLEGRO_BITMAP* _sheet;
+    ALLEGRO_BITMAP* background;
 
     ALLEGRO_BITMAP* ship;
     ALLEGRO_BITMAP* ship_shot[3];
@@ -320,17 +322,21 @@ void disp_init()
 
     buffer = al_create_bitmap(BUFFER_W, BUFFER_H);
     must_init(buffer, "bitmap buffer");
+
+    playarea = al_create_bitmap(PLAYAREA_W, PLAYAREA_H);
+    must_init(playarea, "playarea bitmap");
 }
 
 void disp_deinit()
 {
+    al_destroy_bitmap(playarea);
     al_destroy_bitmap(buffer);
     al_destroy_display(disp);
 }
 
 void disp_pre_draw()
 {
-    al_set_target_bitmap(buffer);
+    al_set_target_bitmap(playarea);
 }
 
 void disp_post_draw()
@@ -338,8 +344,12 @@ void disp_post_draw()
     /*TODO: make a border, move score information to the right of the screen*/
 
     //draws the playarea
-    al_set_target_backbuffer(disp); 
-    al_draw_scaled_bitmap(buffer, 0, 0, BUFFER_W, BUFFER_H, PLAYAREA_OFFSET_X, PLAYAREA_OFFSET_Y, DISP_W, DISP_H, 0);
+    al_set_target_bitmap(buffer);
+    al_draw_bitmap(sprites.background, 0, 0, 0);
+    al_draw_bitmap(playarea, PLAYAREA_OFFSET_X, PLAYAREA_OFFSET_Y, 0);
+
+    al_set_target_backbuffer(disp);
+    al_draw_scaled_bitmap(buffer, 0, 0, BUFFER_W, BUFFER_H, 0, 0, DISP_W, DISP_H, 0);
 
     al_flip_display();
 }
@@ -390,6 +400,9 @@ void sprites_init()
 {
     sprites._sheet = al_load_bitmap("spritesheet.png");
     must_init(sprites._sheet, "spritesheet");
+
+    sprites.background = al_load_bitmap("BG.png");
+    must_init(sprites.background, "background");
 
     sprites.ship = sprite_grab(0, 0, SHIP_W, SHIP_H);
     sprites.hitbox = sprite_grab(0, 36, 8, 8);
@@ -462,6 +475,7 @@ void sprites_deinit()
 
     al_destroy_bitmap(sprites.hair);
 
+    al_destroy_bitmap(sprites.background);
     al_destroy_bitmap(sprites._sheet);
 }
 
