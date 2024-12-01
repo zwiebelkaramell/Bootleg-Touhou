@@ -339,15 +339,16 @@ void disp_pre_draw()
     al_set_target_bitmap(playarea);
 }
 
-void disp_post_draw()
+void disp_pre_post_draw()
+// TODO: come up with better name than pre_post_draw
 {
-    /*TODO: make a border, move score information to the right of the screen*/
-
-    //draws the playarea
     al_set_target_bitmap(buffer);
     al_draw_bitmap(sprites.background, 0, 0, 0);
     al_draw_bitmap(playarea, PLAYAREA_OFFSET_X, PLAYAREA_OFFSET_Y, 0);
+}
 
+void disp_post_draw()
+{
     al_set_target_backbuffer(disp);
     al_draw_scaled_bitmap(buffer, 0, 0, BUFFER_W, BUFFER_H, 0, 0, DISP_W, DISP_H, 0);
 
@@ -876,7 +877,7 @@ void items_update()
                         switch(items[i].type)
                         {
                             case 0: /* potion */
-                                if(ship.power <= MAX_POWER)
+                                if(ship.power < MAX_POWER)
                                 {
                                     ship.power += 1;
                                 }
@@ -1606,17 +1607,43 @@ void hud_draw()
     al_draw_textf(
         font,
         al_map_rgb_f(1,1,1),
-        1, 1,
+        640, 100,
         0,
-        "%06ld",
+        "Score: %06ld",
         score_display
     );
 
+    al_draw_textf(
+        font,
+        al_map_rgb_f(1,1,1),
+        640, 120,
+        0,
+        "Power: %02ld/%d",
+        ship.power,
+        MAX_POWER
+    );
+
     int spacing = ICON_W + 1;
+    // lives ui element
+    al_draw_text(
+        font,
+        al_map_rgb_f(1,1,1),
+        640, 140,
+        0,
+        "Lives: "
+    );
     for(int i = 0; i < ship.lives; i++)
-        al_draw_bitmap(sprites.life, 1 + (i * spacing), 10, 0);
+        al_draw_bitmap(sprites.life, 696 + (i * spacing), 141, 0);
+    // bombs ui element
+    al_draw_text(
+        font,
+        al_map_rgb_f(1,1,1),
+        640, 160,
+        0,
+        "Bombs: "
+    );
     for(int i = 0; i < ship.bombs; i++)
-        al_draw_bitmap(sprites.bomb, 1 + (i * spacing), 20, 0);
+        al_draw_bitmap(sprites.bomb, 696 + (i * spacing), 161, 0);
 
     if(ship.lives < 0)
         al_draw_text(
@@ -1758,6 +1785,8 @@ int main()
             hair_draw(); // i have decided the hair waving even while paused is an ascended bug
             hitbox_draw();
             shots_draw();
+
+            disp_pre_post_draw();
 
             hud_draw();
 
