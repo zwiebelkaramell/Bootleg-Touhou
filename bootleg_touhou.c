@@ -13,7 +13,9 @@
 // aliases
 ALLEGRO_DISPLAY* disp;
 ALLEGRO_BITMAP* buffer;
+ALLEGRO_FONT* font;
 ALLEGRO_BITMAP* playarea;
+ALLEGRO_BITMAP* text_buffer;
 
 // constants
 #define PLAYAREA_W 576
@@ -312,6 +314,24 @@ float get_pan(float x)
     return ((x / (float)(PLAYAREA_W / 2)) - 1.0);
 }
 
+void draw_scaled_text(
+    float color_R, float color_G, float color_B,
+    float x, float y, float dx, float dy, int flags, char* text)
+// draws bitmap fonts with size scaling
+{
+    al_set_target_bitmap(text_buffer);
+    al_clear_to_color(al_map_rgba(0,0,0,0));
+    al_draw_text(
+        font,
+        al_map_rgb_f(color_R,color_G,color_B),
+        0, 0,
+        flags,
+        text
+    );
+    al_set_target_bitmap(buffer);
+    al_draw_scaled_bitmap(text_buffer, 0, 0, DISP_W, DISP_H, x, y, (DISP_W * dx), (DISP_H * dy), 0);
+}
+
 void disp_init()
 {
     al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
@@ -325,6 +345,9 @@ void disp_init()
 
     playarea = al_create_bitmap(PLAYAREA_W, PLAYAREA_H);
     must_init(playarea, "playarea bitmap");
+
+    text_buffer = al_create_bitmap(DISP_W, DISP_H);
+    must_init(text_buffer, "text buffer");
 }
 
 void disp_deinit()
@@ -332,6 +355,7 @@ void disp_deinit()
     al_destroy_bitmap(playarea);
     al_destroy_bitmap(buffer);
     al_destroy_display(disp);
+    al_destroy_bitmap(text_buffer);
 }
 
 void disp_pre_draw()
@@ -1143,7 +1167,7 @@ void ship_update()
     else
     {
         mango_timer += 1;
-        if(mango_timer > 600)
+        if((mango_timer > 600) && (ship.power == MAX_POWER))
         {
             items_add(between(0, PLAYAREA_W-2), 0, 1, 1);
         }
@@ -1573,7 +1597,6 @@ void stars_draw()
     }
 }
 
-ALLEGRO_FONT* font;
 long score_display;
 
 void hud_init()
@@ -1604,46 +1627,48 @@ void hud_update()
 
 void hud_draw()
 {
-    al_draw_textf(
-        font,
-        al_map_rgb_f(1,1,1),
+    char hud_buffer [200];
+
+    sprintf(hud_buffer, "Score: %06ld", score_display);
+    draw_scaled_text(
+        1,1,1,
         640, 100,
+        2,2,
         0,
-        "Score: %06ld",
-        score_display
+        hud_buffer
     );
 
-    al_draw_textf(
-        font,
-        al_map_rgb_f(1,1,1),
+    sprintf(hud_buffer, "Power: %02ld/%d", ship.power, MAX_POWER);
+    draw_scaled_text(
+        1,1,1,
         640, 120,
+        2,2,
         0,
-        "Power: %02ld/%d",
-        ship.power,
-        MAX_POWER
+        hud_buffer
     );
 
-    int spacing = ICON_W + 1;
-    // lives ui element
-    al_draw_text(
-        font,
-        al_map_rgb_f(1,1,1),
+    int spacing = (ICON_W*2) + 4;
+
+    draw_scaled_text(
+        1,1,1,
         640, 140,
+        2,2,
         0,
         "Lives: "
     );
+
     for(int i = 0; i < ship.lives; i++)
-        al_draw_bitmap(sprites.life, 696 + (i * spacing), 141, 0);
-    // bombs ui element
-    al_draw_text(
-        font,
-        al_map_rgb_f(1,1,1),
+        al_draw_scaled_bitmap(sprites.life, 0, 0, ICON_W, ICON_H, 752 + (i * spacing), 142, (ICON_W*2), (ICON_H*2), 0);
+
+    draw_scaled_text(
+        1,1,1,
         640, 160,
+        2,2,
         0,
         "Bombs: "
     );
     for(int i = 0; i < ship.bombs; i++)
-        al_draw_bitmap(sprites.bomb, 696 + (i * spacing), 161, 0);
+        al_draw_scaled_bitmap(sprites.bomb, 0, 0, ICON_W, ICON_H, 752 + (i * spacing), 162, (ICON_W*2), (ICON_H*2), 0);
 
     if(ship.lives < 0)
         al_draw_text(
