@@ -10,12 +10,13 @@
 
 
 
-// aliases
+// pointers
 ALLEGRO_DISPLAY* disp;
 ALLEGRO_BITMAP* buffer;
 ALLEGRO_FONT* font;
 ALLEGRO_BITMAP* playarea;
 ALLEGRO_BITMAP* text_buffer;
+FILE* scorefile;
 
 // constants
 #define PLAYAREA_W 576
@@ -40,6 +41,7 @@ ALLEGRO_BITMAP* text_buffer;
 #define ICON_H 6
 
 #define GRAZE_R 21
+#define HIGHSCORE_N 10
 
 #define ALIEN_BLOB_W        ALIEN_W[0]
 #define ALIEN_BLOB_H        ALIEN_H[0]
@@ -87,9 +89,11 @@ const int SHIP_SHOT_H[] = {11, 5, 7};
 int hitstop_timer = 0;
 int mango_timer = 0;
 bool is_paused = 0;
+bool can_restart = 0;
 bool bombing = 0;
 int score_mult = 1;
 float speed_mult = 1;
+char highscores[256];
 
 // structures
 typedef struct SPRITES
@@ -313,23 +317,45 @@ float get_pan(float x)
 {
     return ((x / (float)(PLAYAREA_W / 2)) - 1.0);
 }
+    
+ char* get_score(int n)
+{
+    char buf[16];
+    char *buf_ptr = buf;
+    return buf_ptr;
+}
 
 void draw_scaled_text(
     float color_R, float color_G, float color_B,
     float x, float y, float dx, float dy, int flags, char* text)
 // draws bitmap fonts with size scaling
+// some flags don't work properly, this is not enough of a problem for me to bother fixing right now
 {
     al_set_target_bitmap(text_buffer);
     al_clear_to_color(al_map_rgba(0,0,0,0));
+    float xpos_offset, ypos_offset, w, h = 0;
+    switch(flags)
+    {
+        case 0:
+            xpos_offset = DISP_W/2;
+            ypos_offset = DISP_H/2;
+            break;
+        case ALLEGRO_ALIGN_CENTRE:
+            w = (dx * al_get_text_width(font, text));
+            h = (dy * al_get_font_line_height(font));
+            xpos_offset = (DISP_W/2) - (w/2);
+            ypos_offset = (DISP_H/2) - (h/2);
+            break;
+    }
     al_draw_text(
         font,
         al_map_rgb_f(color_R,color_G,color_B),
-        0, 0,
+        DISP_W/2, DISP_H/2,
         flags,
         text
     );
     al_set_target_bitmap(buffer);
-    al_draw_scaled_bitmap(text_buffer, 0, 0, DISP_W, DISP_H, x, y, (DISP_W * dx), (DISP_H * dy), 0);
+    al_draw_scaled_bitmap(text_buffer, xpos_offset, ypos_offset, DISP_W, DISP_H, x-w, y-h, (DISP_W * dx), (DISP_H * dy), 0);
 }
 
 void disp_init()
@@ -348,6 +374,9 @@ void disp_init()
 
     text_buffer = al_create_bitmap(DISP_W, DISP_H);
     must_init(text_buffer, "text buffer");
+
+    scorefile = fopen("data.dat", "r+");
+    must_init(scorefile, "high score file");
 }
 
 void disp_deinit()
@@ -1605,6 +1634,7 @@ void hud_init()
     must_init(font, "font");
 
     score_display = 0;
+    fgets(highscores, 256, scorefile);
 }
 
 void hud_deinit()
@@ -1669,16 +1699,44 @@ void hud_draw()
     );
     for(int i = 0; i < ship.bombs; i++)
         al_draw_scaled_bitmap(sprites.bomb, 0, 0, ICON_W, ICON_H, 752 + (i * spacing), 162, (ICON_W*2), (ICON_H*2), 0);
-
+    
     if(ship.lives < 0)
-        al_draw_text(
-            font,
-            al_map_rgb_f(1,1,1),
-            PLAYAREA_W / 2, PLAYAREA_H / 2,
-            ALLEGRO_ALIGN_CENTER,
+    {
+        draw_scaled_text(
+            1,1,1,
+            (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, (PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y,
+            2,2,
+            ALLEGRO_ALIGN_CENTRE,
             "G A M E  O V E R"
         );
+
+        /*for(int i = 0; i < HIGHSCORE_N; i++)
+        {
+            draw_scaled_text(
+                1,1,1,
+                (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, ((PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y) + ((i+1)*20),
+                2,2,
+                0,
+                ""
+            );
+        }*/
+    }
     
+}
+
+void restart_game()
+// restarts the game, writes the high score to a file if it's on the leaderboard
+{
+    aliens_init();
+    shots_init();
+    items_init();
+    fx_init();
+    ship_init();
+    hair_init();
+    stars_init();
+    frames = 0;
+    score = 0;
+
 }
 
 int main()
@@ -1777,6 +1835,8 @@ int main()
                     hud_update();
                 }
                 
+                if(can_restart && keydown[ALLEGRO_KEY_R])
+                    restart_game();
                 if(keydown[ALLEGRO_KEY_P])
                     is_paused = !is_paused;
                 if(key[ALLEGRO_KEY_ESCAPE])
