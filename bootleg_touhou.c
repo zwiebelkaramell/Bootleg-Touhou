@@ -88,6 +88,7 @@ const int SHIP_SHOT_W[] = {3, 5, 7};
 const int SHIP_SHOT_H[] = {11, 5, 7};
 int hitstop_timer = 0;
 int mango_timer = 0;
+int reset_timer = 0;
 bool is_paused = 0;
 bool can_restart = 0;
 bool bombing = 0;
@@ -305,6 +306,15 @@ void find_vector(float ax, float ay, float bx, float by, float* vectx, float* ve
     *vecty = ydiff * norm_fact;
 }
 
+void empty_string(char* str, int len)
+// why is this not in the default library?
+{
+    for(int i = 0; i < len; i++)
+    {
+        str[i] = '\0';
+    }
+}
+
 float get_volume(bool is_music, float gain)
 // returns sound volume adjusted for global volume settings
 {
@@ -318,11 +328,17 @@ float get_pan(float x)
     return ((x / (float)(PLAYAREA_W / 2)) - 1.0);
 }
     
- char* get_score(int n)
-{
+ int get_score(int n)
+ // returns the integer value of the score in position "n" in the highscores
+ {
     char buf[16];
-    char *buf_ptr = buf;
-    return buf_ptr;
+    int num_start = (n*11)+4;
+    for(int i = 0; i < 6; i++)
+    {
+        buf[i] = highscores[num_start + i];
+    }
+    int res = atoi(buf);
+    return res;
 }
 
 void draw_scaled_text(
@@ -385,6 +401,7 @@ void disp_deinit()
     al_destroy_bitmap(buffer);
     al_destroy_display(disp);
     al_destroy_bitmap(text_buffer);
+    fclose(scorefile);
 }
 
 void disp_pre_draw()
@@ -1634,7 +1651,7 @@ void hud_init()
     must_init(font, "font");
 
     score_display = 0;
-    fgets(highscores, 256, scorefile);
+    reset_timer = 1200;
 }
 
 void hud_deinit()
@@ -1700,26 +1717,66 @@ void hud_draw()
     for(int i = 0; i < ship.bombs; i++)
         al_draw_scaled_bitmap(sprites.bomb, 0, 0, ICON_W, ICON_H, 752 + (i * spacing), 162, (ICON_W*2), (ICON_H*2), 0);
     
-    if(ship.lives < 0)
+    if(is_paused)
     {
         draw_scaled_text(
             1,1,1,
             (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, (PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y,
             2,2,
             ALLEGRO_ALIGN_CENTRE,
-            "G A M E  O V E R"
+            "PAUSED"
         );
-
-        /*for(int i = 0; i < HIGHSCORE_N; i++)
+    }
+    
+    if(ship.lives < 0)
+    {
+        for(int i = 0; i < HIGHSCORE_N; i++)
         {
-            draw_scaled_text(
-                1,1,1,
-                (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, ((PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y) + ((i+1)*20),
-                2,2,
-                0,
-                ""
-            );
-        }*/
+            if (reset_timer < 600)
+            {
+                empty_string(hud_buffer, 200);
+                draw_scaled_text(
+                    1,1,1,
+                    (PLAYAREA_W/2) + PLAYAREA_OFFSET_X, (PLAYAREA_H/2) + PLAYAREA_OFFSET_Y,
+                    2,2,
+                    ALLEGRO_ALIGN_CENTRE,
+                    "PRESS \"R\" TO RESTART"
+                );
+                can_restart = true;
+
+                reset_timer -= 1;
+                if(reset_timer == 0)
+                    reset_timer = 1200;
+            }
+            else
+            {
+                draw_scaled_text(
+                    1,1,1,
+                    (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, (PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y,
+                    2,2,
+                    ALLEGRO_ALIGN_CENTRE,
+                    "G A M E  O V E R"
+                );
+
+                empty_string(hud_buffer, 200);
+                for(int n = 0; n < 10; n++)
+                {
+                    hud_buffer[n] = highscores[(n+(i*11))];
+                }
+                
+                draw_scaled_text(
+                    1,1,1,
+                    (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, ((PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y) + ((i+1)*20),
+                    2,2,
+                    ALLEGRO_ALIGN_CENTRE,
+                    hud_buffer
+                );
+
+                reset_timer -= 1;
+            }
+
+            
+        }
     }
     
 }
@@ -1736,6 +1793,7 @@ void restart_game()
     stars_init();
     frames = 0;
     score = 0;
+    can_restart = 0;
 
 }
 
@@ -1758,6 +1816,8 @@ int main()
     sprites_init();
 
     hud_init();
+
+    fread(highscores, sizeof(char), 110, scorefile);
 
     must_init(al_init_primitives_addon(), "primitives");
 
