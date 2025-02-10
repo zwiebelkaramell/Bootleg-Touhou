@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <ctype.h>
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
@@ -89,12 +90,17 @@ const int SHIP_SHOT_H[] = {11, 5, 7};
 int hitstop_timer = 0;
 int mango_timer = 0;
 int reset_timer = 0;
+int hs_input_n = 0;
+int highscore_index = 0;
+int endgame_animation_state = 0;
 bool is_paused = 0;
 bool can_restart = 0;
 bool bombing = 0;
 int score_mult = 1;
 float speed_mult = 1;
 char highscores[256];
+char hud_buffer[200];
+char input_buffer[10];
 
 // structures
 typedef struct SPRITES
@@ -338,7 +344,36 @@ float get_pan(float x)
         buf[i] = highscores[num_start + i];
     }
     int res = atoi(buf);
+    printf("got score: %d\n", res);
     return res;
+}
+
+bool check_score(int i_score)
+// returns true if the given score is higher than one in the scorefile
+{
+    for(int i = 0; i < HIGHSCORE_N; i++)
+    {
+        if(i_score > get_score(i))
+        {
+            highscore_index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+void set_score(int index)
+// sets highscores to the new value, then writes them to the scorefile
+{
+    for(int i = 0; i < 10; i++)
+    {
+        highscores[(index*11) + i] = input_buffer[i];
+    }
+    bool cursormove = fseek(scorefile, 0, SEEK_SET);
+    size_t write_size = fwrite(highscores, sizeof(char), strlen(highscores), scorefile);
+    printf("%d\n", cursormove);
+    printf("%d\n", strlen(highscores));
+    printf("set score: %d\n", write_size);
 }
 
 void draw_scaled_text(
@@ -994,7 +1029,7 @@ bool items_add(float x, float y, int type, float size)
 
         return true;
     }
-    printf("couldn't generate item");
+    printf("couldn't generate item\n");
     return false;
 }
 
@@ -1651,7 +1686,12 @@ void hud_init()
     must_init(font, "font");
 
     score_display = 0;
-    reset_timer = 1200;
+    reset_timer = 600;
+    hs_input_n = 0;
+    endgame_animation_state = 0;
+    empty_string(hud_buffer, 200);
+    empty_string(input_buffer, 10);
+
 }
 
 void hud_deinit()
@@ -1662,19 +1702,34 @@ void hud_deinit()
 void hud_update()
 {
     if(frames % 2)
-        return;
-
-    for(long i = 5; i > 0; i--)
     {
-        long diff = 1 << i;
-        if(score_display <= (score - diff))
-            score_display += diff;
+        for(long i = 5; i > 0; i--)
+        {
+            long diff = 1 << i;
+            if(score_display <= (score - diff))
+                score_display += diff;
+        }
+    }
+
+    if(ship.lives < 0)
+    {
+        if(endgame_animation_state == 2)
+        {
+            //feels inefficient, but making it better requires writing a lot of code. change if it becomes a problem
+            for(int i = 0; i < ALLEGRO_KEY_MAX; i++)
+            {
+                if(keydown[i] && isalpha((char)(i+64)))
+                {
+                    input_buffer[hs_input_n] = (char)(i+64);
+                    hs_input_n++;
+                }
+            }
+        }
     }
 }
 
 void hud_draw()
 {
-    char hud_buffer [200];
 
     sprintf(hud_buffer, "Score: %06ld", score_display);
     draw_scaled_text(
@@ -1730,26 +1785,12 @@ void hud_draw()
     
     if(ship.lives < 0)
     {
-        for(int i = 0; i < HIGHSCORE_N; i++)
+        /*USE A SWITCH SATEMENT BASED ON AN ANIMATIONSTATE INTEGER, DONT GET TOO FANCY WITH IT*/
+        // make sure check_score() only gets called once.
+        switch(endgame_animation_state)
         {
-            if (reset_timer < 600)
-            {
-                empty_string(hud_buffer, 200);
-                draw_scaled_text(
-                    1,1,1,
-                    (PLAYAREA_W/2) + PLAYAREA_OFFSET_X, (PLAYAREA_H/2) + PLAYAREA_OFFSET_Y,
-                    2,2,
-                    ALLEGRO_ALIGN_CENTRE,
-                    "PRESS \"R\" TO RESTART"
-                );
-                can_restart = true;
-
-                reset_timer -= 1;
-                if(reset_timer == 0)
-                    reset_timer = 1200;
-            }
-            else
-            {
+            case 0:
+                //initial "game over" screen
                 draw_scaled_text(
                     1,1,1,
                     (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, (PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y,
@@ -1757,32 +1798,134 @@ void hud_draw()
                     ALLEGRO_ALIGN_CENTRE,
                     "G A M E  O V E R"
                 );
-
-                empty_string(hud_buffer, 200);
-                for(int n = 0; n < 10; n++)
+                if(reset_timer < 300)
                 {
-                    hud_buffer[n] = highscores[(n+(i*11))];
+                    if(check_score(score))
+                        endgame_animation_state = 1;
+                    else
+                    {
+                        endgame_animation_state = 3;
+                        reset_timer = 600;
+                        can_restart = true;
+                    }
                 }
-                
+                reset_timer -= 1;
+                break;
+
+            case 1:
+                //you have a highscore
                 draw_scaled_text(
                     1,1,1,
-                    (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, ((PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y) + ((i+1)*20),
+                    (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, (PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y,
                     2,2,
                     ALLEGRO_ALIGN_CENTRE,
-                    hud_buffer
+                    "H I G H S C O R E !"
                 );
-
+                if(reset_timer < 0)
+                {
+                    endgame_animation_state = 2;
+                    sprintf(input_buffer, "___ %06ld", score);
+                    printf("%c\n", input_buffer);
+                }
                 reset_timer -= 1;
-            }
-
+                break;
             
+            case 2:
+                //input state            
+                for(int i = 0; i < HIGHSCORE_N; i++)
+                {
+                    empty_string(hud_buffer, 200);
+                    if(i == highscore_index)
+                    {
+                        for(int n = 0; n < 10; n++)
+                        {
+                            hud_buffer[n] = input_buffer[n];   
+                        }
+                        if((frames % 60) < 30)
+                        {
+                            draw_scaled_text(
+                                1,1,0,
+                                (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, ((PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y) + ((i+1)*20),
+                                2,2,
+                                ALLEGRO_ALIGN_CENTRE,
+                                hud_buffer
+                            );
+                        }
+                    }
+                    else
+                    {
+                        for(int n = 0; n < 10; n++)
+                        {
+                            hud_buffer[n] = highscores[(n+(i*11))];  
+                        }
+                        draw_scaled_text(
+                            1,1,1,
+                            (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, ((PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y) + ((i+1)*20),
+                            2,2,
+                            ALLEGRO_ALIGN_CENTRE,
+                            hud_buffer
+                        );
+                    }
+                    //TODO find where i want to put the highscores on the screen
+                }
+
+                if(hs_input_n == 3)
+                {
+                    endgame_animation_state = 3;
+                    reset_timer = 600;
+                    can_restart = true;
+                    set_score(highscore_index);
+                }
+                break;
+
+            case 3:
+                //display highscores
+                for(int i = 0; i < HIGHSCORE_N; i++)
+                {
+                    empty_string(hud_buffer, 200);
+                    for(int n = 0; n < 10; n++)
+                    {
+                        hud_buffer[n] = highscores[(n+(i*11))];
+                    }
+                    //TODO find where i want to put the highscores on the screen
+                    draw_scaled_text(
+                        1,1,1,
+                        (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, ((PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y) + ((i+1)*20),
+                        2,2,
+                        ALLEGRO_ALIGN_CENTRE,
+                        hud_buffer
+                    );
+                }
+                if(reset_timer == 0)
+                {
+                    reset_timer = 600;
+                    endgame_animation_state = 4;
+                }
+                reset_timer -= 1;
+                break;
+            
+            case 4:
+                //restart message
+                draw_scaled_text(
+                    1,1,1,
+                    (PLAYAREA_W / 2) + PLAYAREA_OFFSET_X, (PLAYAREA_H / 2) + PLAYAREA_OFFSET_Y,
+                    2,2,
+                    ALLEGRO_ALIGN_CENTRE,
+                    "PRESS \"R\" TO RESTART"
+                );
+                if(reset_timer < 300)
+                {
+                    endgame_animation_state = 3;
+                }
+                reset_timer -= 1;
+                break;
         }
     }
     
 }
 
 void restart_game()
-// restarts the game, writes the high score to a file if it's on the leaderboard
+// restarts the game
 {
     aliens_init();
     shots_init();
@@ -1790,11 +1933,11 @@ void restart_game()
     fx_init();
     ship_init();
     hair_init();
+    hud_init();
     stars_init();
     frames = 0;
     score = 0;
     can_restart = 0;
-
 }
 
 int main()
