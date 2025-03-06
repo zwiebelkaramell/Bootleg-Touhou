@@ -43,6 +43,7 @@ FILE* scorefile;
 
 #define GRAZE_R 21
 #define HIGHSCORE_N 10
+#define POD_N 32
 
 #define ALIEN_BLOB_W        ALIEN_W[0]
 #define ALIEN_BLOB_H        ALIEN_H[0]
@@ -217,6 +218,21 @@ typedef struct BOMB
     float max_size;
 } BOMB;
 BOMB bomb;
+
+
+//typedef struct POD
+// structure for spawning enemy pods
+//{
+//	float offset; /*relative spawn location*/
+//	int location; /*0 is left, 1 is top, 2 is right*/
+//	int type; /*what kind of enemy spawns. Maybe add weight to harder enemies as game gets harder. mixed pods as well*/
+//	int path; /*bake in several movement paths, make them with forier circles?*/
+//	int number; /*how many enemies in the pod, scales with time*/
+//	int health_mult; /*multiplier to enemy health, scales with time*/
+  //  bool used;
+//} POD;
+//POD pod[POD_N];
+
 
 typedef struct STAR
 {
@@ -789,6 +805,21 @@ void player_dies()
     );
 }
 
+/*
+bool pod_add()
+// adds a pod, should be called with increasing frequency and difficulty by another function
+{
+    for(int i = 0; i < POD_N; i++)
+    {
+        if(pod[i].used)
+            continue;
+
+        
+        pod[i].used = true;
+        return true;
+    }
+}
+*/
 void shots_init()
 {
     for(int i = 0; i < SHOTS_N; i++)
