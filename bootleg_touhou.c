@@ -70,7 +70,7 @@ FILE* scorefile;
 
 #define MAX_SCORE_MULT 200
 
-#define BOMB_LENGTH 180
+#define BOMB_LENGTH 216
 #define DEATHBOMB_LENGTH 90
 #define BOMB_SIZE 100.0
 #define DEATHBOMB_SIZE 60.0
@@ -601,7 +601,13 @@ void sprites_deinit()
     al_destroy_bitmap(sprites._sheet);
 }
 
-ALLEGRO_SAMPLE* sample_shot;
+ALLEGRO_SAMPLE* sample_player_shot;
+ALLEGRO_SAMPLE* sample_enemy_shot[2];
+ALLEGRO_SAMPLE* sample_bomb;
+ALLEGRO_SAMPLE* sample_deathbomb;
+ALLEGRO_SAMPLE* sample_powerup;
+ALLEGRO_SAMPLE* sample_lifeget;
+ALLEGRO_SAMPLE* sample_bombget;
 ALLEGRO_SAMPLE* sample_explode[2];
 ALLEGRO_SAMPLE* sample_hitmarker;
 ALLEGRO_SAMPLE* sample_death;
@@ -614,8 +620,26 @@ void audio_init()
     al_init_acodec_addon();
     al_reserve_samples(256);
 
-    sample_shot = al_load_sample("shot.flac");
-    must_init(sample_shot, "shot sample");
+    sample_player_shot = al_load_sample("player_shot.flac");
+    must_init(sample_player_shot, "player shot sample");
+
+    sample_enemy_shot[0] = al_load_sample("enemy_shot_1.flac");
+    must_init(sample_enemy_shot[0], "enemy shot sample 1");
+    sample_enemy_shot[1] = al_load_sample("enemy_shot_2.flac");
+    must_init(sample_enemy_shot[1], "enemy shot sample 2");
+
+    sample_bomb = al_load_sample("bomb.flac");
+    must_init(sample_bomb, "bomb sample");
+    sample_deathbomb = al_load_sample("deathbomb.flac");
+    must_init(sample_deathbomb, "deathbomb sample");
+
+    sample_powerup = al_load_sample("powerup.flac");
+    must_init(sample_powerup, "powerup sample");
+
+    sample_lifeget = al_load_sample("lifeget.flac");
+    must_init(sample_lifeget, "lifeget sample");
+    sample_bombget = al_load_sample("bombget.flac");
+    must_init(sample_bombget, "bombget sample");
 
     sample_explode[0] = al_load_sample("explode1.flac");
     must_init(sample_explode[0], "explode[0] sample");
@@ -638,7 +662,14 @@ void audio_init()
 
 void audio_deinit()
 {
-    al_destroy_sample(sample_shot);
+    al_destroy_sample(sample_player_shot);
+    al_destroy_sample(sample_enemy_shot[0]);
+    al_destroy_sample(sample_enemy_shot[1]);
+    al_destroy_sample(sample_bomb);
+    al_destroy_sample(sample_deathbomb);
+    al_destroy_sample(sample_powerup);
+    al_destroy_sample(sample_lifeget);
+    al_destroy_sample(sample_bombget);
     al_destroy_sample(sample_explode[0]);
     al_destroy_sample(sample_explode[1]);
     al_destroy_sample(sample_hitmarker);
@@ -1215,7 +1246,7 @@ void ship_update()
                 ship.shot_timer = 5;
 
             al_play_sample(
-                sample_shot,
+                sample_player_shot,
                 get_volume(false, 0.3),
                 get_pan(x),
                 1.0,
@@ -1230,7 +1261,7 @@ void ship_update()
                 ship.shot_timer = 5;
 
             al_play_sample(
-                sample_shot,
+                sample_player_shot,
                 get_volume(false, 0.3),
                 get_pan(x),
                 1.0,
@@ -1247,7 +1278,7 @@ void ship_update()
                 ship.shot_timer = 5;
 
             al_play_sample(
-                sample_shot,
+                sample_player_shot,
                 get_volume(false, 0.3),
                 get_pan(x),
                 1.0,
@@ -1266,7 +1297,7 @@ void ship_update()
             ship.shot_timer = 5;
 
             al_play_sample(
-                sample_shot,
+                sample_player_shot,
                 get_volume(false, 0.3),
                 get_pan(x),
                 1.0,
@@ -1289,6 +1320,15 @@ void ship_update()
     {
         ship.bombs -= 1;
         do_bomb(BOMB_LENGTH, BOMB_SIZE);
+
+        al_play_sample(
+                        sample_bomb,
+                        get_volume(false, .50),
+                        get_pan(ship.y),
+                        1.0,
+                        ALLEGRO_PLAYMODE_ONCE,
+                        NULL
+                    );
     }
 }
 
@@ -1618,10 +1658,10 @@ void aliens_update()
                     }
 
                     al_play_sample(
-                        sample_shot,
+                        sample_enemy_shot[between(0,1)],
                         get_volume(false, 0.3),
                         get_pan(cx),
-                        between_f(1.5, 1.6),
+                        between_f(0.9, 1.1),
                         ALLEGRO_PLAYMODE_ONCE,
                         NULL
                     );
@@ -1634,10 +1674,10 @@ void aliens_update()
                     aliens[i].shot_timer = 160;
 
                     al_play_sample(
-                        sample_shot,
+                        sample_enemy_shot[between(0,1)],
                         get_volume(false, 0.3),
                         get_pan(cx),
-                        between_f(1.5, 1.6),
+                        between_f(0.9, 1.1),
                         ALLEGRO_PLAYMODE_ONCE,
                         NULL
                     );
@@ -1649,10 +1689,10 @@ void aliens_update()
                     aliens[i].shot_timer = 200;
 
                     al_play_sample(
-                        sample_shot,
+                        sample_enemy_shot[between(0,1)],
                         get_volume(false, 0.3),
                         get_pan(cx),
-                        between_f(1.5, 1.6),
+                        between_f(0.9, 1.1),
                         ALLEGRO_PLAYMODE_ONCE,
                         NULL
                     );
@@ -2041,6 +2081,16 @@ int main()
                     {
                         ship.bombs -= 1;
                         do_bomb(DEATHBOMB_LENGTH, DEATHBOMB_SIZE);
+
+                        al_play_sample(
+                                        sample_deathbomb,
+                                        get_volume(false, 0.5),
+                                        get_pan(ship.y),
+                                        1.0,
+                                        ALLEGRO_PLAYMODE_ONCE,
+                                        NULL
+                                    );
+
                         hitstop_timer = 0;
                     }
                     if (hitstop_timer % 2 == 1)
