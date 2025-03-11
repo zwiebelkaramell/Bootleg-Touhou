@@ -61,12 +61,12 @@ FILE* scorefile;
 #define FOCUS_SPEED 1
 #define SHIP_MAX_X (PLAYAREA_W - SHIP_W)
 #define SHIP_MAX_Y (PLAYAREA_H - SHIP_H)
-#define MAX_HAIR_LEN 30
+#define MAX_HAIR_LEN 32
 
-#define POW_LVL_1 10
-#define POW_LVL_2 20
-#define POW_LVL_3 30
-#define MAX_POWER 40
+#define POW_LVL_1 8
+#define POW_LVL_2 16
+#define POW_LVL_3 24
+#define MAX_POWER 32
 
 #define MAX_SCORE_MULT 200
 
@@ -81,7 +81,7 @@ long score;
 float master_volume = 1;
 float sfx_volume = 1;
 float music_volume = 1;
-int hair_len = 15;
+int hair_len = 8;
 const int ALIEN_W[] = {15, 19, 18, 25};
 const int ALIEN_H[] = {15, 23, 31, 33};
 const int ALIEN_SHOT_W[] = {5, 9, 5, 28};
@@ -157,7 +157,6 @@ typedef struct SHIP
     int shot_timer;
     int lives;
     int bombs;
-    int power;
     int respawn_timer;
     int invincible_timer;
     int frame;
@@ -823,7 +822,6 @@ void player_dies()
     hair_len = 15;
     score_mult = 1;
     speed_mult = 1.0;
-    ship.power = (ship.power/2);
     if (ship.bombs < 3)
         ship.bombs = 3;
     al_play_sample(
@@ -1044,9 +1042,9 @@ void items_update()
                         switch(items[i].type)
                         {
                             case 0: /* potion */
-                                if(ship.power < MAX_POWER)
+                                if(hair_len < MAX_POWER)
                                 {
-                                    ship.power += 1;
+                                    hair_len += 1;
                                 }
                                 else
                                 {
@@ -1125,7 +1123,7 @@ void ship_init()
     ship.bombs = 3;
     ship.respawn_timer = 0;
     ship.invincible_timer = 120;
-    ship.power = 0;
+    hair_len = 8;
 }
 
 void ship_update()
@@ -1240,7 +1238,7 @@ void ship_update()
     {
         //shot pattern stuff
         float x = ship.x + (SHIP_W / 2);
-        if(ship.power < POW_LVL_1)
+        if(hair_len < POW_LVL_1)
         {
             if(shots_add(true, 0, 0, -5, x, ship.y))
                 ship.shot_timer = 5;
@@ -1254,7 +1252,7 @@ void ship_update()
                 NULL
             );
         }
-        else if(ship.power < POW_LVL_2)
+        else if(hair_len < POW_LVL_2)
         {
             if(shots_add(true, 0, 0, -5, x+3, ship.y)
             && shots_add(true, 0, 0, -5, x-3, ship.y))
@@ -1269,7 +1267,7 @@ void ship_update()
                 NULL
             );    
         }
-        else if(ship.power < POW_LVL_3)
+        else if(hair_len < POW_LVL_3)
         {
             if(shots_add(true, 0, 0, -5, x+3, ship.y)
             && shots_add(true, 0, 0, -5, x-3, ship.y)
@@ -1310,7 +1308,7 @@ void ship_update()
     else
     {
         mango_timer += 1;
-        if((mango_timer > 600) && (ship.power == MAX_POWER))
+        if((mango_timer > 600) && (hair_len == MAX_POWER))
         {
             items_add(between(0, PLAYAREA_W-2), 0, 1, 1);
         }
@@ -1539,7 +1537,7 @@ void aliens_update()
 
         if(shots_collide(false, aliens[i].x, aliens[i].y, ALIEN_W[aliens[i].type], ALIEN_H[aliens[i].type]))
         {
-            if(ship.power < POW_LVL_1)
+            if(hair_len < POW_LVL_1)
             {
                 al_play_sample(
                     sample_hitmarker,
@@ -1552,7 +1550,7 @@ void aliens_update()
                 aliens[i].life -= 3;
                 aliens[i].blink = 4;
             }
-            else if(ship.power < POW_LVL_2)
+            else if(hair_len < POW_LVL_2)
             {
                 al_play_sample(
                     sample_hitmarker,
@@ -1565,7 +1563,7 @@ void aliens_update()
                 aliens[i].life -= 2;
                 aliens[i].blink = 4;
             }
-            else if(ship.power < POW_LVL_3)
+            else if(hair_len < POW_LVL_3)
             {
                 al_play_sample(
                     sample_hitmarker,
@@ -1811,7 +1809,7 @@ void hud_draw()
         hud_buffer
     );
 
-    sprintf(hud_buffer, "Power: %02ld/%d", ship.power, MAX_POWER);
+    sprintf(hud_buffer, "Power: %02ld/%d", hair_len, MAX_POWER);
     draw_scaled_text(
         1,1,1,
         640, 120,
