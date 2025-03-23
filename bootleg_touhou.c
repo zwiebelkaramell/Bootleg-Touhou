@@ -1046,6 +1046,18 @@ void items_update()
                             case 0: /* potion */
                                 if(ship.power < MAX_POWER)
                                 {
+                                    if((ship.power == (POW_LVL_1-1))||(ship.power == (POW_LVL_2-1))||(ship.power == (POW_LVL_3-1))||(ship.power == (MAX_POWER-1)))
+                                    {
+                                        al_play_sample(
+                                            sample_powerup,
+                                            get_volume(false, 0.5),
+                                            get_pan(ship.x),
+                                            1,
+                                            ALLEGRO_PLAYMODE_ONCE,
+                                            NULL
+                                        );
+                                    }
+
                                     ship.power += 1;
                                 }
                                 else
