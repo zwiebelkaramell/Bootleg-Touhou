@@ -337,6 +337,54 @@ void empty_string(char* str, int len)
     }
 }
 
+void point_on_line(float x1, float y1, float x2, float y2, float scaler, float* x_out, float* y_out)
+// there's probably a library for this, but I think it's faster to make it myself than to shop around
+// returns a point along a line between x1,y1 and x2,y2. a scaler input between 0.0 and 1.0 decides how far along relative to it's length
+// outputs using a given set of pointers, because that's how C be
+{
+    *x_out = (x1 + (scaler * (x2-x1)));
+    *y_out = (y1 + (scaler * (y2-y1)));
+}
+
+
+// no optional arguments in C, so i just made each degree of bezier curve it's own function
+// i could make a hackey workaround for this, but doing it this way is safer
+void bezier3(float x1, float y1, float x2, float y2, float x3, float y3, float scaler, float *x_out, float *y_out)
+// 3 point input bezier curve
+{
+    float bufx1, bufy1, bufx2, bufy2;
+    // 1st pass
+    point_on_line(x1, y1, x2, y2, scaler, &bufx1, &bufy1);
+    point_on_line(x2, y2, x3, y3, scaler, &bufx2, &bufy2);
+    // last pass
+    point_on_line(bufx1, bufy1, bufx2, bufy2, scaler, x_out, y_out);
+}
+
+void bezier4(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float scaler, float *x_out, float *y_out)
+// 4 point input bezier curve
+{
+    float bufx1, bufy1, bufx2, bufy2, bufx3, bufy3;
+    // 1st pass
+    point_on_line(x1, y1, x2, y2, scaler, &bufx1, &bufy1);
+    point_on_line(x2, y2, x3, y3, scaler, &bufx2, &bufy2);
+    point_on_line(x3, y3, x4, y4, scaler, &bufx3, &bufy3);
+    // recursion(kinda)
+    bezier3(bufx1, bufy1, bufx2, bufy2, bufx3, bufy3, scaler, x_out, y_out);
+}
+
+void bezier5(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float x5, float y5, float scaler, float *x_out, float *y_out)
+// 5 point input bezier curve
+{
+    float bufx1, bufy1, bufx2, bufy2, bufx3, bufy3, bufx4, bufy4;
+    // 1st pass
+    point_on_line(x1, y1, x2, y2, scaler, &bufx1, &bufy1);
+    point_on_line(x2, y2, x3, y3, scaler, &bufx2, &bufy2);
+    point_on_line(x3, y3, x4, y4, scaler, &bufx3, &bufy3);
+    point_on_line(x4, y4, x5, y5, scaler, &bufx4, &bufy4);
+    // recursion(recursion(kinda))
+    bezier4(bufx1, bufy1, bufx2, bufy2, bufx3, bufy3, bufx4, bufy4, scaler, x_out, y_out);
+}
+
 float get_volume(bool is_music, float gain)
 // returns sound volume adjusted for global volume settings
 {
