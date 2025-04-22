@@ -75,6 +75,11 @@ FILE* scorefile;
 #define BOMB_SIZE 100.0
 #define DEATHBOMB_SIZE 60.0
 
+#define SPAWN_FREQ 120 /*number of frames between pod spawns*/
+
+#define MAX_DIFF 100.0 /*maximum difficulty level*/
+#define MAX_DIFF_INCREASE 1.0 /*max increase per tick of difficulty function*/
+
 // globals
 long frames;
 long score;
@@ -88,6 +93,8 @@ const int ALIEN_SHOT_W[] = {5, 9, 5, 28};
 const int ALIEN_SHOT_H[] = {5, 9, 20, 8};
 const int SHIP_SHOT_W[] = {3, 5, 7};
 const int SHIP_SHOT_H[] = {11, 5, 7};
+//TODO: figure out how to balance these
+const int ALIEN_WEIGHT[] = {1, 3, 5, 7};
 int hitstop_timer = 0;
 int mango_timer = 0;
 int reset_timer = 0;
@@ -99,9 +106,15 @@ bool can_restart = 0;
 bool bombing = 0;
 int score_mult = 1;
 float speed_mult = 1;
+float difficulty = 0.0;
 char highscores[256];
 char hud_buffer[200];
 char input_buffer[10];
+
+// bezier curves
+const int CURVES[] = {{},
+//TODO: actually go through and find the curves
+}
 
 // structures
 typedef struct SPRITES
@@ -220,18 +233,17 @@ typedef struct BOMB
 BOMB bomb;
 
 
-//typedef struct POD
-// structure for spawning enemy pods
-//{
-//	float offset; /*relative spawn location*/
-//	int location; /*0 is left, 1 is top, 2 is right*/
-//	int type; /*what kind of enemy spawns. Maybe add weight to harder enemies as game gets harder. mixed pods as well*/
-//	int path; /*bake in several movement paths, make them with forier circles?*/
-//	int number; /*how many enemies in the pod, scales with time*/
-//	int health_mult; /*multiplier to enemy health, scales with time*/
-  //  bool used;
-//} POD;
-//POD pod[POD_N];
+typedef struct POD
+//structure for spawning enemy pods
+{
+	float offset; /*relative spawn location*/
+	int type; /*what kind of enemy spawns. Maybe add weight to harder enemies as game gets harder. mixed pods as well*/
+	int path; /*bake in several movement paths*/
+	int number; /*how many enemies in the pod, scales with time*/
+	int health_mult; /*multiplier to enemy health, scales with time*/
+    bool used;
+} POD;
+POD pods[POD_N];
 
 
 typedef struct STAR
@@ -471,6 +483,34 @@ void draw_scaled_text(
     );
     al_set_target_bitmap(buffer);
     al_draw_scaled_bitmap(text_buffer, xpos_offset, ypos_offset, DISP_W, DISP_H, x-w, y-h, (DISP_W * dx), (DISP_H * dy), 0);
+}
+
+int check_weight_on_screen()
+// returns the total weight of enemies on screen
+{
+    int current_weight = 0;
+    for(int i = 0; i < ALIENS_N; i++)
+    {
+        if(aliens[i].used)
+        {
+            current_weight += ALIEN_WEIGHT[aliens[i].type];
+        }
+    }
+    return current_weight;
+}
+
+// WIP
+void tick_difficulty()
+// decides how much to increase the difficulty
+{
+    //TODO: figure out all the factors for how to decide difficulty
+}
+
+//WIP
+void spawn_pod()
+// called every SPAWN_FREQ frames, decides what to spawn and where
+{
+
 }
 
 void disp_init()
@@ -884,21 +924,43 @@ void player_dies()
     );
 }
 
-/*
+void pod_init()
+// initialize pod
+{
+    for(int i = 0; i < POD_N; i++)
+    {
+        pods[i].used = false;
+    }
+}
+
+//WIP
 bool pod_add()
 // adds a pod, should be called with increasing frequency and difficulty by another function
 {
     for(int i = 0; i < POD_N; i++)
     {
-        if(pod[i].used)
+        if(pods[i].used)
             continue;
 
-        
-        pod[i].used = true;
+        /*actually add the pod*/
+        pods[i].used = true;
         return true;
     }
 }
-*/
+
+//WIP
+bool pod_update()
+// does pod update stuff
+{
+    for(int i = 0; i < POD_N; i++)
+    {
+        if(!pods[i].used)
+            continue;
+
+        /*do update stuff*/
+    }
+}
+
 void shots_init()
 {
     for(int i = 0; i < SHOTS_N; i++)
