@@ -510,7 +510,11 @@ void tick_difficulty()
 void spawn_pod()
 // called every SPAWN_FREQ frames, decides what to spawn and where
 {
-
+    // chose a curve
+    // check weight, compare to total allowed weight, which is a function of difficulty
+    // min number of enemies in a pod; can we spawn that without going over the weight?
+    // randomly decide from enemies that are over minimum
+    // call pod_add() with final decision
 }
 
 void disp_init()
@@ -958,6 +962,9 @@ bool pod_update()
             continue;
 
         /*do update stuff*/
+        // array containing all id of each enemy in the pod
+        // loop through with pod offset, moving every enemy through the curve at a set speed
+        // add exception so blobs can do their charge attack
     }
 }
 
@@ -1752,6 +1759,7 @@ void aliens_update()
             {
                 case ALIEN_TYPE_BLOB:
                     // Blobs are not proper Wiznerds and cannot use magic
+                    // TODO: add revenge attack, where they charge you after getting hit
                     aliens[i].shot_timer = 200;
                     break;
                 case ALIEN_TYPE_YELLOW:
