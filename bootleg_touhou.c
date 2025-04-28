@@ -79,6 +79,7 @@ FILE* scorefile;
 
 #define MAX_DIFF 100.0 /*maximum difficulty level*/
 #define MAX_DIFF_INCREASE 1.0 /*max increase per tick of difficulty function*/
+#define MAX_POD_SIZE 32
 
 // globals
 long frames;
@@ -112,7 +113,13 @@ char hud_buffer[200];
 char input_buffer[10];
 
 // bezier curves
-const int CURVES[] = {{},
+// formatted as list of lists, each nested list is a curve
+// to reduce complexity, each curve is (x0,y0, x1,y1, etc)
+// this means we need to parse curve complexity by counting elements
+const int CURVES[] = {{576,450, -263,736, 839,736, 0,450}, // loop de loop
+                      {576,672, 363,-130, 213,-130, 0,672}, // big scary arc towards bottom
+                      {576,110, 440,800, 136,800, 0,110}, // big surprising arc from bottom
+                      {277,672, -630,276, 1206,276, 299,672}, // almost circular flyby from top-mid
 //TODO: actually go through and find the curves
 }
 
@@ -241,6 +248,7 @@ typedef struct POD
 	int path; /*bake in several movement paths*/
 	int number; /*how many enemies in the pod, scales with time*/
 	int health_mult; /*multiplier to enemy health, scales with time*/
+    int members[MAX_POD_SIZE] /*contains array location for all pod members*/
     bool used;
 } POD;
 POD pods[POD_N];
